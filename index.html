@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover + user-scalable=no: fills a phone screen edge to edge
+     and stops a double-tap from zooming the page mid-corner. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#12121a">
+<meta name="description" content="Turbo Circuit — a tilt-steered top-down racer for phone and tablet.">
+
+<!-- These two let you add the game to your home screen and play it
+     fullscreen, with no browser address bar. -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Turbo Circuit">
+
+<title>Turbo Circuit</title>
+<!-- The tab icon, drawn inline so the game needs no extra files at all. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23191924'/%3E%3Crect x='5' y='12' width='22' height='9' rx='4' fill='%23ff9d4d'/%3E%3Crect x='11' y='9' width='11' height='6' rx='3' fill='%23ffd6b8'/%3E%3Ccircle cx='10' cy='22' r='3.4' fill='%23111'/%3E%3Ccircle cx='22' cy='22' r='3.4' fill='%23111'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<!-- ===== In-race heads-up display ===== -->
+<div id="hud">
+  <div class="hudTop">
+    <button id="btnPause" aria-label="Pause">❚❚</button>
+    <div class="stack">
+      <div id="place">4th</div>
+      <div id="lap">LAP 1/3</div>
+      <div id="trackName"></div>
+    </div>
+  </div>
+
+  <div class="hudBottom">
+    <div id="itemSlot" aria-label="Your item"></div>
+    <div id="speedBar"><div id="speedFill"></div></div>
+  </div>
+
+  <div id="countdown"></div>
+  <div id="toast"></div>
+</div>
+
+<!-- ===== Main menu ===== -->
+<div class="screen on" id="menu">
+  <div class="panel">
+    <h1>TURBO<span>CIRCUIT</span></h1>
+    <p class="tag">Tilt to steer · Tap to fire</p>
+    <button class="primary" id="btnStart">RACE</button>
+    <div class="stats"><span id="menuPoints">0 pts</span></div>
+    <div class="ups" id="menuUpgrades"></div>
+    <div class="menuRow">
+      <button id="btnTracks">Tracks</button>
+      <button id="btnHowto">How to play</button>
+      <button id="btnSettings">Controls</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Track select ===== -->
+<div class="screen" id="tracks">
+  <div class="panel wide">
+    <h2>Championship</h2>
+    <div id="trackList" class="trackList"></div>
+    <button data-back>← Back</button>
+  </div>
+</div>
+
+<!-- ===== How to play ===== -->
+<div class="screen" id="howto">
+  <div class="panel wide">
+    <h2>How to play</h2>
+    <div class="howto">
+      <p><b>Steering.</b> Tilt your phone or tablet left and right. Your car
+      accelerates on its own — you only ever steer.</p>
+      <p><b>Firing.</b> Tap anywhere on the screen to use whatever is in your
+      item slot, bottom left.</p>
+      <p><b>🚀 Missile</b> flies forward and spins out whoever it hits.<br>
+      <b>🛢️ Oil</b> drops behind you for whoever is chasing.<br>
+      <b>⚡ Turbo</b> is an instant burst of speed.</p>
+      <p><b>Yellow squares</b> are upgrades — engine, tyres and roll cage. You
+      keep them for the whole championship, so grabbing them early pays off
+      for the rest of the season.</p>
+      <p><b>Glowing arrows</b> on the tarmac are speed strips. Free speed if
+      you can hit them.</p>
+      <p><b>Stay on the tarmac.</b> The dirt is slow.</p>
+      <p><b>Finish in the top three</b> to move on to the next circuit.</p>
+    </div>
+    <button data-back>← Back</button>
+  </div>
+</div>
+
+<!-- ===== Controls / settings ===== -->
+<div class="screen" id="settings">
+  <div class="panel wide">
+    <h2>Controls</h2>
+
+    <div class="seg">
+      <button data-mode="tilt">Tilt</button>
+      <button data-mode="touch">Touch</button>
+    </div>
+    <p class="note" id="tiltStatus"></p>
+
+    <button id="btnCalibrate">Centre steering</button>
+    <p class="hint">Hold your device however you like to play, then tap this.
+      That position becomes “straight ahead”.</p>
+
+    <label class="field">
+      <span>Sensitivity <b id="sensVal">1.0×</b></span>
+      <input type="range" id="sens" min="0.4" max="2.2" step="0.1" value="1">
+    </label>
+
+    <label class="check"><input type="checkbox" id="invert"> Reverse steering</label>
+    <label class="check"><input type="checkbox" id="sound" checked> Sound</label>
+
+    <button class="danger" id="btnReset">Reset progress</button>
+    <button data-back>← Back</button>
+  </div>
+</div>
+
+<!-- ===== Paused ===== -->
+<div class="screen" id="pause">
+  <div class="panel">
+    <h2>Paused</h2>
+    <button class="primary" id="btnResume">Resume</button>
+    <button id="btnPauseCalib">Centre steering</button>
+    <button id="btnPauseQuit">Quit race</button>
+  </div>
+</div>
+
+<!-- ===== Results ===== -->
+<div class="screen" id="results">
+  <div class="panel wide">
+    <div id="resultPlace" class="big">1st</div>
+    <div id="resultTrack" class="sub"></div>
+    <div id="resultTime" class="sub"></div>
+    <div id="resultTable" class="table"></div>
+    <div class="ups" id="resultUpgrades"></div>
+    <p id="resultMsg" class="note"></p>
+    <button class="primary" id="btnNext">Next race →</button>
+    <button id="btnQuit">Menu</button>
+  </div>
+</div>
+
+<!-- Load order matters: each file uses the ones above it.
+     Each file wraps itself in its own scope, because plain <script> tags all
+     share one global namespace and two files declaring the same name is an
+     error that stops the whole game loading. -->
+<script src="js/util.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/input.js"></script>
+<script src="js/track.js"></script>
+<script src="js/tracks.js"></script>
+<script src="js/car.js"></script>
+<script src="js/items.js"></script>
+<script src="js/render.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
