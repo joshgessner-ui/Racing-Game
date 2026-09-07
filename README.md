@@ -12,19 +12,26 @@ Tilt to steer. Tap anywhere to fire. That's the whole control scheme.
 
 **On your phone or tablet — the way it's meant to be played:**
 
-1. Turn on GitHub Pages for this repository: **Settings → Pages → Source: Deploy from a branch → `main` / `(root)` → Save.**
-2. Wait a minute, then open the URL GitHub gives you (something like
-   `https://joshgessner-ui.github.io/racing-game/`).
-3. In Safari or Chrome on your device, tap **Share → Add to Home Screen**. It
-   then opens fullscreen with no address bar, like a real app.
+1. On GitHub, go to **Settings → Pages**.
+2. Under **Source**, choose **Deploy from a branch**, then set the branch to
+   **`main`** and the folder to **`/ (root)`**. Click **Save**.
+3. Wait a minute or two, then refresh that page — GitHub shows you the live
+   link at the top. It will be:
 
-Tilt steering needs an `https://` address, which is why the GitHub Pages link
-matters — it won't work from a file on your desktop.
+   **https://joshgessner-ui.github.io/Racing-Game/**
+
+4. Open that link on your phone, then tap **Share → Add to Home Screen**. It
+   opens fullscreen with no address bar after that, like a real app.
+
+That's the whole deployment. There's no build step and nothing to install —
+the repository *is* the website, so every push updates the live game
+automatically.
+
+Tilt steering only works on an `https://` address, which is why the GitHub
+link matters. It won't work from a file on your desktop.
 
 **On a computer, to try it quickly:** double-click `index.html`. Steer with the
 arrow keys, fire with the spacebar.
-
----
 
 ## The rules
 
