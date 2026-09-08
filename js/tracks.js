@@ -39,7 +39,7 @@
   RC.TRACK_DEFS = [
     {
       name: 'Sunset Speedway',
-      subtitle: 'Wide, fast, forgiving. Learn to tilt here.',
+      subtitle: 'Wide, fast, forgiving. Learn the controls here.',
       halfWidth: 132,
       laps: 3,
       points: ring({

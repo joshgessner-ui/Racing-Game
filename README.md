@@ -1,10 +1,10 @@
 # Turbo Circuit
 
-A tilt-steered top-down racer for phones and tablets, built in the spirit of
+A top-down racer for phones and tablets, built in the spirit of
 **R.C. Pro-Am**: little toy cars, missiles, oil slicks, and upgrades you keep
 for the rest of the championship.
 
-Tilt to steer. Tap anywhere to fire. That's the whole control scheme.
+Left thumb steers. Right thumb brakes and fires. The car accelerates itself.
 
 ---
 
@@ -35,37 +35,46 @@ arrow keys, fire with the spacebar.
 
 ## The rules
 
-- Your car accelerates by itself. You only ever steer.
-- Finish in the **top three** to unlock the next circuit. Below that, you retry.
+- **Steering.** Push the stick on the left in the direction you want to drive.
+  The car turns until it is heading that way, then holds that line. It isn't a
+  turn-left / turn-right control — you point, the car goes. The stick appears
+  wherever your thumb lands on the left of the screen.
+- **Speed.** Your car accelerates on its own. **BRAKE** is your only speed
+  control, and you'll need it — braking also lets you change direction about a
+  quarter faster, so it's how you get round the tight stuff.
+- **FIRE** uses your item. The button shows what you're carrying.
+- Finish in the **top three** to unlock the next circuit.
 - **🚀 Missile** — fires forward, spins out whoever it hits.
 - **🛢️ Oil** — drops behind you for whoever is chasing.
 - **⚡ Turbo** — an instant burst of speed.
 - **Yellow squares** are upgrades: engine, tyres, roll cage. You keep them for
-  the whole championship, so a good early race makes every later one easier.
-  They sit off the racing line on purpose — grabbing one costs you time.
+  the whole championship — including on races you don't win — so they're always
+  worth the detour off the racing line.
 - **Glowing arrows** on the tarmac are speed strips. Free speed, if you can hit them.
 - There's dirt either side of the tarmac and a barrier beyond it. The dirt is
   slow, so cutting a corner never pays.
 
-Five circuits, getting harder. The first one you can take almost flat out; the
-last has a hairpin you have to genuinely slow down for.
+Five circuits, getting harder. The first you can take almost flat out; the last
+has a hairpin you genuinely have to brake for.
 
 ---
 
-## If the steering feels wrong
+## If the handling feels wrong
 
-Everything below is under **Controls** on the main menu.
+Under **Controls** on the main menu:
 
 | Problem | Fix |
 |---|---|
-| The car drifts to one side when you hold still | **Centre steering** — hold the device how you want to play, then tap it |
-| Too twitchy / not responsive enough | **Sensitivity** slider |
-| Steering is backwards | **Reverse steering** |
-| Nothing happens when you tilt | Switch to **Touch** — hold the left or right half of the screen |
+| Steering feels vague or slow to respond | Turn **Steering response** up |
+| Steering feels twitchy or over-eager | Turn **Steering response** down |
+| Bumps and explosions make you queasy | Turn **Screen shake** off |
 
-On iPhone and iPad the browser asks permission to use motion sensors the first
-time. If you decline it, the game quietly switches to touch steering; you can
-re-enable tilt from the Controls screen.
+**On motion sickness.** The camera never rotates — north on the track is
+always up on the screen, and the view just slides along to follow you, the way
+the original RC Pro-Am worked. An earlier version turned the camera with the
+car, which reads well but makes a lot of people ill. If anything still bothers
+you, turning screen shake off removes the last of the camera movement that
+isn't your own driving.
 
 ---
 
@@ -79,7 +88,7 @@ change a number, refresh the page.
 |---|---|
 | `js/util.js` | Small maths helpers. No game logic. |
 | `js/audio.js` | Every sound, generated in code — there are no audio files. |
-| `js/input.js` | Reading tilt, with touch and keyboard fallbacks. |
+| `js/input.js` | The thumbstick and buttons, plus keyboard for desktop. |
 | `js/track.js` | Turns a handful of points into a circuit, and answers "am I on the road?", "what lap is this?" |
 | `js/tracks.js` | **The five circuits.** The most fun file to experiment with. |
 | `js/car.js` | How a car moves, and how the computer drivers think. |
@@ -93,7 +102,8 @@ change a number, refresh the page.
   that repeats twice per lap gives long sweepers; one that repeats six times
   gives tight technical corners. Change an `amp` and watch the track change.
 - **`js/car.js`, the `BASE` block at the top** — `maxSpeed`, `turnRate`,
-  `accel`. This is the feel of the game in five numbers.
+  `accel`. This is the feel of the game in five numbers. `turnRate` is the one
+  that decides how sharp the steering feels.
 - **`js/tracks.js`, the `theme` on each track** — the colours.
 
 A note on the file structure: each file wraps its contents in

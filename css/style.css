@@ -95,38 +95,90 @@ html, body {
   margin-top: 3px;
 }
 
-.hudBottom {
+/* ===== On-screen controls =====
+   Sized in vmin so they stay thumb-sized on a small phone and don't become
+   absurd on a tablet, with hard limits at both ends. */
+
+#stick {
   position: absolute;
-  left: calc(12px + var(--safe-left));
-  right: calc(12px + var(--safe-right));
-  bottom: calc(14px + var(--safe-bottom));
-  display: flex; align-items: center; gap: 12px;
+  pointer-events: auto;
+  left: calc(16px + var(--safe-left));
+  bottom: calc(20px + var(--safe-bottom));
+  width: clamp(104px, 30vmin, 158px);
+  height: clamp(104px, 30vmin, 158px);
+  border-radius: 50%;
+  /* These sit on top of sand, neon city, red rock and storm-green grass, so
+     they need their own dark ground and a light rim to read against any of
+     them rather than borrowing contrast from the track. */
+  background: rgba(10,10,16,0.46);
+  border: 2.5px solid rgba(255,255,255,0.40);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45), inset 0 0 22px rgba(0,0,0,0.30);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.82;
+  transition: opacity .12s ease, background .12s ease;
+}
+#stick.live { opacity: 1; background: rgba(10,10,16,0.62); }
+
+#knob {
+  width: 46%; height: 46%;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.94);
+  border: 2px solid rgba(0,0,0,0.45);
+  box-shadow: 0 3px 12px rgba(0,0,0,0.5);
+  /* No transition: the knob must track your thumb exactly, with no lag. */
 }
 
-#itemSlot {
-  width: 64px; height: 64px;
-  flex: 0 0 auto;
-  border-radius: 16px;
-  border: 3px dashed rgba(255,255,255,0.22);
-  background: rgba(13,13,20,0.45);
+#btnFire, #btnBrake {
+  position: absolute;
+  pointer-events: auto;
+  margin: 0;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.40);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
   display: flex; align-items: center; justify-content: center;
-  font-size: 32px;
-  transition: transform .15s ease, border-color .15s ease;
+  font-size: clamp(11px, 3vmin, 15px);
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  line-height: 1;
+  overflow: hidden;   /* never let a label spill outside the circle */
+  transition: transform .08s ease, background .12s ease;
 }
-#itemSlot.full {
-  border-style: solid;
-  border-color: var(--accent);
-  background: rgba(255,157,77,0.16);
-  transform: scale(1.06);
+
+#btnFire {
+  right: calc(16px + var(--safe-right));
+  bottom: calc(26px + var(--safe-bottom));
+  width: clamp(74px, 21vmin, 108px);
+  height: clamp(74px, 21vmin, 108px);
+  background: rgba(14,14,22,0.62);
+  color: rgba(255,255,255,0.62);
 }
+/* Lights up only when you're actually carrying something. */
+#btnFire.armed {
+  background: rgba(255,157,77,0.62);
+  border-color: #ffd7ad;
+  color: #fff;
+  font-size: clamp(26px, 7vmin, 38px);
+}
+#btnFire.down, #btnBrake.down { transform: scale(0.92); }
+
+#btnBrake {
+  right: calc(16px + clamp(74px, 21vmin, 108px) + 14px + var(--safe-right));
+  bottom: calc(38px + var(--safe-bottom));
+  width: clamp(66px, 18vmin, 92px);
+  height: clamp(66px, 18vmin, 92px);
+  background: rgba(122,30,46,0.72);
+  color: #ffd2d8;
+}
+#btnBrake.down { background: rgba(232,64,88,0.92); color: #fff; }
 
 #speedBar {
-  flex: 1 1 auto;
-  height: 10px;
-  border-radius: 6px;
+  width: 108px;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 4px;
   background: rgba(13,13,20,0.5);
   overflow: hidden;
-  max-width: 320px;
 }
 #speedFill {
   height: 100%; width: 0%;
@@ -250,11 +302,6 @@ button:disabled { opacity: .45; }
 .trackBtn .info b { display: block; font-size: 15px; }
 .trackBtn .info em { display: block; font-style: normal; font-size: 11px; color: var(--dim); margin-top: 2px; }
 .trackBtn .bst { flex: 0 0 auto; font-size: 11px; color: var(--accent); font-variant-numeric: tabular-nums; }
-
-/* Segmented tilt/touch switch */
-.seg { display: flex; gap: 6px; background: var(--panel2); padding: 5px; border-radius: 14px; margin-bottom: 10px; }
-.seg button { margin: 0; background: transparent; padding: 11px; font-size: 14px; }
-.seg button.sel { background: var(--accent); color: #241400; }
 
 .field { display: block; margin: 16px 0 4px; font-size: 13px; color: var(--dim); font-weight: 700; }
 .field span { display: flex; justify-content: space-between; margin-bottom: 8px; }

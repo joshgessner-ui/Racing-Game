@@ -14,7 +14,7 @@
   const BASE = {
     maxSpeed: 520,      // world units per second on clean tarmac
     accel: 340,         // how quickly you reach top speed
-    turnRate: 2.75,     // radians per second at full lock
+    turnRate: 3.0,      // radians per second at full lock
     scrub: 0.55,        // speed lost while cornering hard
     radius: 21,         // for bumping into other cars
   };
@@ -60,6 +60,7 @@
       boost: 0,            // seconds of turbo left
       invuln: 0,           // brief mercy window after being hit
       offRoad: false,
+    braking: false,
 
       // Race position tracking
       loc: 0,              // nearest centreline index
@@ -106,7 +107,16 @@
       car.steerInput = 0;
     } else {
       if (car.isPlayer) {
-        car.steerInput = race.controlsLive ? RC.input.steer : 0;
+        // The stick names a direction. Steer towards it as hard as the tyres
+        // allow, and hold a straight line when the stick is released.
+        if (race.controlsLive && RC.input.active) {
+          const want = Math.atan2(RC.input.dirY, RC.input.dirX);
+          car.steerInput = RC.clamp(
+            RC.angleDelta(car.heading, want) * RC.input.response, -1, 1
+          );
+        } else {
+          car.steerInput = 0;
+        }
       } else {
         car.steerInput = RC.aiSteer(car, track, dt, race);
       }
@@ -114,8 +124,15 @@
 
     const maxSpeed = RC.carMaxSpeed(car);
 
+    // Braking is the player's only speed control - everything accelerates on
+    // its own. It earns its button on the tighter circuits, where the hairpin
+    // simply cannot be taken flat.
+    const braking = car.isPlayer && race.controlsLive && RC.input.brake && car.spin <= 0;
+    car.braking = braking;
+
     // --- How fast do we want to be going? ---
     let targetSpeed = maxSpeed;
+    if (braking) targetSpeed *= 0.30;
     if (car.offRoad) targetSpeed *= RC.carGripOffRoad(car);
     if (car.boost > 0) { targetSpeed *= 1.42; car.boost -= dt; }
     if (!race.controlsLive && car.isPlayer) targetSpeed = 0; // countdown / finished
@@ -139,11 +156,17 @@
       // cannot turn back onto the tarmac just stays there, which is annoying
       // rather than difficult.
       const surface = car.offRoad ? 0.85 : 1;
-      car.heading += car.steerInput * RC.carTurnRate(car) * grip * surface * dt;
+      // Slowing down already tightens your line for free, because a slower
+      // car turning at the same rate traces a smaller circle. The small extra
+      // bonus here is just to make the brake feel decisive.
+      const brakeBonus = braking ? 1.15 : 1;
+      car.heading += car.steerInput * RC.carTurnRate(car) * grip * surface * brakeBonus * dt;
     }
 
     // --- Speed ---
-    const rate = targetSpeed > car.speed ? BASE.accel : BASE.accel * 2.1;
+    const rate = targetSpeed > car.speed
+      ? BASE.accel
+      : BASE.accel * (braking ? 3.0 : 2.1);
     car.speed += RC.clamp(targetSpeed - car.speed, -rate * dt, rate * dt);
     // Cornering scrubs off speed, so you can't take a hairpin flat out.
     car.speed -= Math.abs(car.steerInput) * car.speed * BASE.scrub * dt;
