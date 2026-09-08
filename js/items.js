@@ -85,26 +85,29 @@
     car.item = null;
 
     if (kind === 'turbo') {
-      car.boost = Math.max(car.boost, 1.7);
+      // Refills the meter rather than giving a one-off shove, so it feeds
+      // the same turbo button you're already using.
+      car.boostCharge = 1;
+      car.boost = Math.max(car.boost, 0.9);
       RC.audio.turbo();
       RC.burst(race, car.x, car.y, 14, '#7fe8ff', 260);
       return;
     }
 
     if (kind === 'oil') {
-      const bx = car.x - Math.cos(car.heading) * 52;
-      const by = car.y - Math.sin(car.heading) * 52;
+      const bx = car.x - Math.cos(car.heading) * 62;
+      const by = car.y - Math.sin(car.heading) * 62;
       // `caught` remembers who this slick has already got, so one slick is one
       // spin per car rather than a trap you can never drive out of.
-      race.slicks.push({ x: bx, y: by, r: 46, life: 9, owner: car.index, grow: 0, caught: [] });
+      race.slicks.push({ x: bx, y: by, r: 56, life: 9, owner: car.index, grow: 0, caught: [] });
       RC.audio.drop();
       return;
     }
 
     if (kind === 'missile') {
       race.missiles.push({
-        x: car.x + Math.cos(car.heading) * 34,
-        y: car.y + Math.sin(car.heading) * 34,
+        x: car.x + Math.cos(car.heading) * 42,
+        y: car.y + Math.sin(car.heading) * 42,
         heading: car.heading,
         speed: RC.carMaxSpeed(car) * 1.55 + 140,
         life: 3.2,
@@ -132,7 +135,7 @@
 
       for (const car of cars) {
         if (car.finished) continue;
-        if (RC.dist2(car.x, car.y, it.x, it.y) > 34 * 34) continue;
+        if (RC.dist2(car.x, car.y, it.x, it.y) > 42 * 42) continue;
 
         if (it.kind === 'crate') {
           if (!car.item) {
@@ -163,7 +166,7 @@
       if (car.finished || car.spin > 0) continue;
       for (const z of track.zips) {
         if (Math.abs(car.loc - z.index) > 8 && Math.abs(car.loc - z.index) < track.count - 8) continue;
-        if (RC.dist2(car.x, car.y, z.x, z.y) < 40 * 40) {
+        if (RC.dist2(car.x, car.y, z.x, z.y) < 50 * 50) {
           car.boost = Math.max(car.boost, 0.85);
           if (car.isPlayer) RC.audio.zip();
           break;
@@ -205,7 +208,7 @@
       for (const c of cars) {
         if (c.index === m.owner || c.finished) continue;
         if (c.invuln > 0) continue; // already been got - let the missile fly on
-        if (RC.dist2(c.x, c.y, m.x, m.y) < 27 * 27) {
+        if (RC.dist2(c.x, c.y, m.x, m.y) < 33 * 33) {
           if (RC.spinOut(c, 1.0)) {
             RC.shove(c, Math.cos(m.heading) * 300, Math.sin(m.heading) * 300);
           }

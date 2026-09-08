@@ -12,9 +12,14 @@
 
    The exact numbers below were solved for rather than eyeballed, so that
    each circuit is about 20 seconds a lap and its tightest corner needs a
-   specific speed to get through: 620 units/sec on the first track (barely
-   a lift) down to 270 on the last (a proper hairpin). That is the
-   difficulty curve of the championship, in one row of numbers per track.
+   specific speed to get through. That is the difficulty curve of the
+   championship, in one row of numbers per track.
+
+   Corner tightness and track width are not independent. If the tarmac's
+   half-width ever exceeds the radius of the tightest corner, the inside
+   edge folds back through itself and both the drawing and the collision
+   break. So widening the last two circuits meant easing their sharpest
+   corners to match - the width you can have is set by the corner you keep.
    ============================================================ */
 
 (function () {
@@ -40,7 +45,7 @@
     {
       name: 'Sunset Speedway',
       subtitle: 'Wide, fast, forgiving. Learn the controls here.',
-      halfWidth: 132,
+      halfWidth: 165,
       laps: 3,
       points: ring({
         base: 1038, sx: 1.24, sy: 1.0,
@@ -54,7 +59,7 @@
     {
       name: 'Harbour Lights',
       subtitle: 'A long back straight and one nasty left.',
-      halfWidth: 122,
+      halfWidth: 152,
       laps: 3,
       points: ring({
         base: 1165, sx: 1.16, sy: 0.95,
@@ -68,7 +73,7 @@
     {
       name: 'Neon District',
       subtitle: 'Four corners that all arrive at once.',
-      halfWidth: 114,
+      halfWidth: 136,
       laps: 3,
       points: ring({
         base: 1116, sx: 1.2, sy: 1.0,
@@ -82,14 +87,14 @@
     {
       name: 'Canyon Run',
       subtitle: 'Narrow, with a hairpin that bites.',
-      halfWidth: 106,
+      halfWidth: 128,
       laps: 3,
       points: ring({
-        base: 1201, sx: 1.26, sy: 0.9,
+        base: 1217, sx: 1.26, sy: 0.9,
         waves: [
-          { k: 5, amp: 151, phase: 0.9 },
-          { k: 3, amp: 122, phase: 0.3 },
-          { k: 2, amp: 78, phase: 2.2 },
+          { k: 5, amp: 142, phase: 0.9 },
+          { k: 3, amp: 115, phase: 0.3 },
+          { k: 2, amp: 74, phase: 2.2 },
         ],
       }),
       theme: {
@@ -100,14 +105,14 @@
     {
       name: 'Thunder Ridge',
       subtitle: 'The championship decider. Good luck.',
-      halfWidth: 102,
+      halfWidth: 120,
       laps: 3,
       points: ring({
-        base: 1168, sx: 1.3, sy: 0.96,
+        base: 1219, sx: 1.3, sy: 0.96,
         waves: [
-          { k: 6, amp: 134, phase: 0.5 },
-          { k: 4, amp: 123, phase: 2.4 },
-          { k: 2, amp: 93, phase: 0.8 },
+          { k: 6, amp: 119, phase: 0.5 },
+          { k: 4, amp: 110, phase: 2.4 },
+          { k: 2, amp: 82, phase: 0.8 },
         ],
       }),
       theme: {

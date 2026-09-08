@@ -4,7 +4,8 @@ A top-down racer for phones and tablets, built in the spirit of
 **R.C. Pro-Am**: little toy cars, missiles, oil slicks, and upgrades you keep
 for the rest of the championship.
 
-Left thumb steers. Right thumb brakes and fires. The car accelerates itself.
+A four-way cross on the left, turbo and fire on the right. The car
+accelerates itself.
 
 ---
 
@@ -27,29 +28,31 @@ That's the whole deployment. There's no build step and nothing to install —
 the repository *is* the website, so every push updates the live game
 automatically.
 
-Tilt steering only works on an `https://` address, which is why the GitHub
-link matters. It won't work from a file on your desktop.
-
 **On a computer, to try it quickly:** double-click `index.html`. Steer with the
 arrow keys, fire with the spacebar.
 
 ## The rules
 
-- **Steering.** Push the stick on the left in the direction you want to drive.
-  The car turns until it is heading that way, then holds that line. It isn't a
-  turn-left / turn-right control — you point, the car goes. The stick appears
-  wherever your thumb lands on the left of the screen.
-- **Speed.** Your car accelerates on its own. **BRAKE** is your only speed
-  control, and you'll need it — braking also lets you change direction about a
-  quarter faster, so it's how you get round the tight stuff.
+- **Steering.** Left and right on the cross turn your car, for as long as you
+  hold them. Let go and it holds the line it's on. It's a steering wheel, not
+  a compass — you're turning the car, not pointing it at a spot on the map.
+- **BRAKE** is the bottom of the cross. Your car speeds up on its own, so
+  braking is your only way to slow down — and it also turns you about a
+  quarter quicker, which is how you get round the tight stuff. You can hold
+  brake and a direction together; press down-and-left on the cross.
+- **TURBO** is a burst of speed from a meter that refills when you're not
+  using it: about two seconds of boost when full, seven and a half to refill.
+  Every car on the grid has one.
 - **FIRE** uses your item. The button shows what you're carrying.
 - Finish in the **top three** to unlock the next circuit.
 - **🚀 Missile** — fires forward, spins out whoever it hits.
 - **🛢️ Oil** — drops behind you for whoever is chasing.
-- **⚡ Turbo** — an instant burst of speed.
+- **⚡ Turbo pickup** — instantly refills your turbo meter.
 - **Yellow squares** are upgrades: engine, tyres, roll cage. You keep them for
-  the whole championship — including on races you don't win — so they're always
-  worth the detour off the racing line.
+  the whole championship — including on races you don't win — so they're
+  always worth the detour off the racing line. They're also the difficulty
+  dial: on the last circuit, no upgrades finishes about sixth, a full set
+  about second.
 - **Glowing arrows** on the tarmac are speed strips. Free speed, if you can hit them.
 - There's dirt either side of the tarmac and a barrier beyond it. The dirt is
   slow, so cutting a corner never pays.
@@ -65,16 +68,20 @@ Under **Controls** on the main menu:
 
 | Problem | Fix |
 |---|---|
-| Steering feels vague or slow to respond | Turn **Steering response** up |
-| Steering feels twitchy or over-eager | Turn **Steering response** down |
+| The car turns too slowly | Turn **Steering speed** up |
+| The car is twitchy and hard to hold straight | Turn **Steering speed** down |
 | Bumps and explosions make you queasy | Turn **Screen shake** off |
 
 **On motion sickness.** The camera never rotates — north on the track is
 always up on the screen, and the view just slides along to follow you, the way
-the original RC Pro-Am worked. An earlier version turned the camera with the
-car, which reads well but makes a lot of people ill. If anything still bothers
-you, turning screen shake off removes the last of the camera movement that
-isn't your own driving.
+the original RC Pro-Am worked. If anything still bothers you, turning screen
+shake off removes the last camera movement that isn't your own driving.
+
+**One consequence of that fixed camera** worth knowing: when you're driving
+down the screen, pressing right turns the car right *from the car's point of
+view*, which looks like moving left on screen. That's how RC Pro-Am handled it
+too. The alternative is turning the camera with the car, which is what made
+you ill.
 
 ---
 
@@ -88,7 +95,7 @@ change a number, refresh the page.
 |---|---|
 | `js/util.js` | Small maths helpers. No game logic. |
 | `js/audio.js` | Every sound, generated in code — there are no audio files. |
-| `js/input.js` | The thumbstick and buttons, plus keyboard for desktop. |
+| `js/input.js` | The cross and the two buttons, plus keyboard for desktop. |
 | `js/track.js` | Turns a handful of points into a circuit, and answers "am I on the road?", "what lap is this?" |
 | `js/tracks.js` | **The five circuits.** The most fun file to experiment with. |
 | `js/car.js` | How a car moves, and how the computer drivers think. |
@@ -120,6 +127,12 @@ it appears in the championship automatically. Nothing else needs editing —
 pickups, the minimap, the AI's racing line and the start grid are all worked
 out from the track shape.
 
-The one rule: keep it built from `ring({...})`. Because every point is a
+Two rules. Keep it built from `ring({...})` — because every point is a
 distance out from a centre, the track can never cross over itself, which would
 break the lap counting.
+
+And keep `halfWidth` comfortably under the radius of your tightest corner. If
+the tarmac is wider than the corner is tight, the inside edge folds back
+through itself and both the drawing and the collision break. Corner tightness
+and track width are not independent: the width you can have is set by the
+sharpest corner you keep.

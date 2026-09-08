@@ -16,13 +16,22 @@
     accel: 340,         // how quickly you reach top speed
     turnRate: 3.0,      // radians per second at full lock
     scrub: 0.55,        // speed lost while cornering hard
-    radius: 21,         // for bumping into other cars
+    radius: 27,         // for bumping into other cars
   };
 
   // How much dirt there is between the edge of the tarmac and the barrier.
   // Enough to survive a mistake, not enough to make cutting a corner pay.
   const RUNOFF = 62;
   RC.RUNOFF = RUNOFF;
+
+  // The turbo meter. A full meter is BOOST_SECONDS of boost, and it takes
+  // BOOST_RECHARGE seconds of not using it to fill from empty. Every car has
+  // one, including the computer drivers, so it speeds the whole race up
+  // rather than handing the player a free advantage.
+  const BOOST_SECONDS = 2.2;
+  const BOOST_RECHARGE = 7.5;
+  const BOOST_MULTIPLIER = 1.40;
+  RC.BOOST_SECONDS = BOOST_SECONDS;
 
   const CAR_COLORS = [
     { body: '#ff4d5e', trim: '#ffd6da', name: 'Scorcher' },
@@ -57,7 +66,9 @@
       item: null,          // 'missile' | 'oil' | 'turbo'
       spin: 0,             // seconds left spinning out
       spinDir: 1,
-      boost: 0,            // seconds of turbo left
+      boost: 0,            // seconds of boost from a speed strip or an item
+    boostCharge: 1,      // the turbo meter, 0..1
+    boosting: false,     // is the turbo actually firing right now
       invuln: 0,           // brief mercy window after being hit
       offRoad: false,
     braking: false,
@@ -88,7 +99,12 @@
   /* ---------- Derived stats ---------- */
 
   RC.carMaxSpeed = (c) => BASE.maxSpeed * (1 + c.engine * 0.075);
-  RC.carTurnRate = (c) => BASE.turnRate * (1 + c.tires * 0.085);
+  // The player can scale their own turn rate from the Controls screen. The
+  // computer cars are never scaled, so the setting is a comfort dial rather
+  // than a difficulty one - and its corner-speed maths stays honest.
+  RC.playerTurnScale = 1;
+  RC.carTurnRate = (c) => BASE.turnRate * (1 + c.tires * 0.085)
+    * (c.isPlayer ? RC.playerTurnScale : 1);
   RC.carGripOffRoad = (c) => 0.56 + c.tires * 0.05;  // how much speed you keep in the dirt
   RC.carHitResist = (c) => 1 - c.armor * 0.22;       // armour shortens a spin-out
 
@@ -107,16 +123,11 @@
       car.steerInput = 0;
     } else {
       if (car.isPlayer) {
-        // The stick names a direction. Steer towards it as hard as the tyres
-        // allow, and hold a straight line when the stick is released.
-        if (race.controlsLive && RC.input.active) {
-          const want = Math.atan2(RC.input.dirY, RC.input.dirX);
-          car.steerInput = RC.clamp(
-            RC.angleDelta(car.heading, want) * RC.input.response, -1, 1
-          );
-        } else {
-          car.steerInput = 0;
-        }
+        // Left and right turn the car for as long as they are held. A very
+        // fast ramp rather than an instant jump, so the first frame of a press
+        // isn't a jolt - but quick enough to feel immediate.
+        const want = race.controlsLive ? RC.input.steer : 0;
+        car.steerInput = RC.damp(car.steerInput, want, 30, dt);
       } else {
         car.steerInput = RC.aiSteer(car, track, dt, race);
       }
@@ -124,17 +135,32 @@
 
     const maxSpeed = RC.carMaxSpeed(car);
 
-    // Braking is the player's only speed control - everything accelerates on
-    // its own. It earns its button on the tighter circuits, where the hairpin
-    // simply cannot be taken flat.
-    const braking = car.isPlayer && race.controlsLive && RC.input.brake && car.spin <= 0;
+    const live = race.controlsLive && car.spin <= 0 && !car.finished;
+
+    // Braking. Down on the cross for the player; the computer lifts off
+    // rather than braking, which its corner-speed maths already handles.
+    const braking = car.isPlayer && live && RC.input.brake;
     car.braking = braking;
+
+    // --- Turbo ---
+    // Held down, it drains the meter. Let go and the meter refills.
+    const wantBoost = car.isPlayer ? (live && RC.input.turbo) : (live && !!car.wantBoost);
+    if (wantBoost && car.boostCharge > 0) {
+      car.boostCharge = Math.max(0, car.boostCharge - dt / BOOST_SECONDS);
+      car.boosting = true;
+    } else {
+      car.boosting = false;
+      car.boostCharge = Math.min(1, car.boostCharge + dt / BOOST_RECHARGE);
+    }
+    // Speed strips and the turbo pickup still give a timed boost of their own.
+    if (car.boost > 0) car.boost -= dt;
+    const boosting = car.boosting || car.boost > 0;
 
     // --- How fast do we want to be going? ---
     let targetSpeed = maxSpeed;
     if (braking) targetSpeed *= 0.30;
     if (car.offRoad) targetSpeed *= RC.carGripOffRoad(car);
-    if (car.boost > 0) { targetSpeed *= 1.42; car.boost -= dt; }
+    if (boosting) targetSpeed *= BOOST_MULTIPLIER;
     if (!race.controlsLive && car.isPlayer) targetSpeed = 0; // countdown / finished
     if (!race.started) targetSpeed = 0;
     if (car.ai) targetSpeed *= car.ai.speedScale;
@@ -380,6 +406,11 @@
       const turn = RC.carTurnRate(car) * 0.76; // turn rate after grip losses
       cornerLimit = RC.clamp((turn / curve) / maxSpeed * ai.cornerNerve, 0.28, 1);
     }
+
+    // 4b. Spend the turbo meter on the straights, where it is worth most,
+    //     and keep a little back so it is never completely empty at a corner.
+    const straightAhead = track.maxCurvature(car.loc, 34) < 0.0011;
+    car.wantBoost = straightAhead && car.boostCharge > 0.35;
 
     // 5. A gentle helping hand so the pack stays together and the race stays
     //    interesting - but not so strong that going fast stops mattering.

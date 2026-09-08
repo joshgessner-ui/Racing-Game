@@ -97,38 +97,49 @@ html, body {
 
 /* ===== On-screen controls =====
    Sized in vmin so they stay thumb-sized on a small phone and don't become
-   absurd on a tablet, with hard limits at both ends. */
+   absurd on a tablet, with hard limits at both ends. They carry their own
+   dark ground and light rim so they read against sand, neon, red rock or
+   grass rather than borrowing contrast from whatever is underneath. */
 
-#stick {
+#pad {
   position: absolute;
   pointer-events: auto;
-  left: calc(16px + var(--safe-left));
-  bottom: calc(20px + var(--safe-bottom));
-  width: clamp(104px, 30vmin, 158px);
-  height: clamp(104px, 30vmin, 158px);
-  border-radius: 50%;
-  /* These sit on top of sand, neon city, red rock and storm-green grass, so
-     they need their own dark ground and a light rim to read against any of
-     them rather than borrowing contrast from the track. */
-  background: rgba(10,10,16,0.46);
-  border: 2.5px solid rgba(255,255,255,0.40);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.45), inset 0 0 22px rgba(0,0,0,0.30);
+  left: calc(14px + var(--safe-left));
+  bottom: calc(18px + var(--safe-bottom));
+  width: clamp(132px, 38vmin, 198px);
+  height: clamp(132px, 38vmin, 198px);
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+  opacity: 0.92;
+}
+
+#pad .arm {
   display: flex; align-items: center; justify-content: center;
-  opacity: 0.82;
-  transition: opacity .12s ease, background .12s ease;
+  background: rgba(10,10,16,0.72);
+  border: 2px solid rgba(255,255,255,0.36);
+  color: rgba(255,255,255,0.72);
+  font-size: clamp(13px, 3.6vmin, 20px);
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.45);
+  transition: background .07s ease, transform .07s ease;
 }
-#stick.live { opacity: 1; background: rgba(10,10,16,0.62); }
+#pad .arm.down { font-size: clamp(8px, 2.2vmin, 12px); letter-spacing: 0.5px; }
 
-#knob {
-  width: 46%; height: 46%;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.94);
-  border: 2px solid rgba(0,0,0,0.45);
-  box-shadow: 0 3px 12px rgba(0,0,0,0.5);
-  /* No transition: the knob must track your thumb exactly, with no lag. */
-}
+/* The four arms of the cross, and a blank hub in the middle. */
+.arm.up    { grid-area: 1 / 2 / 2 / 3; border-radius: 14px 14px 0 0; border-bottom: none; }
+.arm.left  { grid-area: 2 / 1 / 3 / 2; border-radius: 14px 0 0 14px; border-right: none; }
+#padC      { grid-area: 2 / 2 / 3 / 3; background: rgba(10,10,16,0.72);
+             border-top: 2px solid rgba(255,255,255,0.34);
+             border-bottom: 2px solid rgba(255,255,255,0.34); }
+.arm.right { grid-area: 2 / 3 / 3 / 4; border-radius: 0 14px 14px 0; border-left: none; }
+.arm.down  { grid-area: 3 / 2 / 4 / 3; border-radius: 0 0 14px 14px; border-top: none; }
 
-#btnFire, #btnBrake {
+#pad .arm.pressed { background: rgba(255,157,77,0.78); color: #fff; transform: scale(0.96); }
+#pad .arm.down.pressed { background: rgba(232,64,88,0.88); }
+
+#btnFire, #btnTurbo {
   position: absolute;
   pointer-events: auto;
   margin: 0;
@@ -144,6 +155,7 @@ html, body {
   overflow: hidden;   /* never let a label spill outside the circle */
   transition: transform .08s ease, background .12s ease;
 }
+#btnFire.pressed, #btnTurbo.pressed { transform: scale(0.92); }
 
 #btnFire {
   right: calc(16px + var(--safe-right));
@@ -160,17 +172,31 @@ html, body {
   color: #fff;
   font-size: clamp(26px, 7vmin, 38px);
 }
-#btnFire.down, #btnBrake.down { transform: scale(0.92); }
 
-#btnBrake {
+#btnTurbo {
   right: calc(16px + clamp(74px, 21vmin, 108px) + 14px + var(--safe-right));
-  bottom: calc(38px + var(--safe-bottom));
-  width: clamp(66px, 18vmin, 92px);
-  height: clamp(66px, 18vmin, 92px);
-  background: rgba(122,30,46,0.72);
-  color: #ffd2d8;
+  bottom: calc(40px + var(--safe-bottom));
+  width: clamp(68px, 19vmin, 96px);
+  height: clamp(68px, 19vmin, 96px);
+  background: rgba(14,22,30,0.66);
+  color: #bfefff;
+  position: absolute;
 }
-#btnBrake.down { background: rgba(232,64,88,0.92); color: #fff; }
+/* The meter fills the button from the bottom, so you can read how much
+   boost you have left without looking away from the track. */
+#turboFill {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 100%;
+  background: linear-gradient(180deg, rgba(127,232,255,0.30), rgba(127,232,255,0.75));
+  transform-origin: bottom;
+  transform: scaleY(1);
+  transition: transform .1s linear;
+  pointer-events: none;
+}
+#btnTurbo b { position: relative; z-index: 1; }
+#btnTurbo.pressed { background: rgba(40,90,120,0.85); color: #fff; }
+#btnTurbo.empty { color: rgba(255,255,255,0.35); border-color: rgba(255,255,255,0.18); }
 
 #speedBar {
   width: 108px;

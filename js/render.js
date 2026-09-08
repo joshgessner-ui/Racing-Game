@@ -297,10 +297,10 @@
         ctx.fillStyle = th.accent;
         ctx.globalAlpha = pulse;
         ctx.beginPath();
-        ctx.moveTo(-22 + k * 20, -30);
-        ctx.lineTo(-4 + k * 20, 0);
-        ctx.lineTo(-22 + k * 20, 30);
-        ctx.lineTo(-14 + k * 20, 0);
+        ctx.moveTo(-28 + k * 25, -38);
+        ctx.lineTo(-5 + k * 25, 0);
+        ctx.lineTo(-28 + k * 25, 38);
+        ctx.lineTo(-18 + k * 25, 0);
         ctx.closePath(); ctx.fill();
       }
       ctx.globalAlpha = 1;
@@ -336,26 +336,26 @@
 
       // Shadow on the tarmac
       ctx.fillStyle = 'rgba(0,0,0,0.28)';
-      ctx.beginPath(); ctx.ellipse(0, 10 - bob, 18, 8, 0, 0, RC.TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0, 12 - bob, 22, 10, 0, 0, RC.TAU); ctx.fill();
 
       // No un-rotating needed: the camera never turns, so an icon drawn
       // upright stays upright.
       if (it.kind === 'crate') {
-        const s = 15;
+        const s = 19;
         ctx.fillStyle = '#f6f2e8';
         rr(ctx, -s, -s, s * 2, s * 2, 5); ctx.fill();
         ctx.strokeStyle = '#2b2b33'; ctx.lineWidth = 3; ctx.stroke();
         ctx.fillStyle = '#ff4d5e';
-        ctx.font = 'bold 20px system-ui, sans-serif';
+        ctx.font = 'bold 25px system-ui, sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText('?', 0, 1);
       } else {
-        const s = 17;
+        const s = 21;
         ctx.fillStyle = '#ffd23f';
         rr(ctx, -s, -s, s * 2, s * 2, 7); ctx.fill();
         ctx.strokeStyle = '#4a3a00'; ctx.lineWidth = 3; ctx.stroke();
         ctx.fillStyle = '#4a3a00';
-        ctx.font = 'bold 17px system-ui, sans-serif';
+        ctx.font = 'bold 21px system-ui, sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(it.upgrade === 'engine' ? 'E' : it.upgrade === 'tires' ? 'T' : 'C', 0, 1);
       }
@@ -376,30 +376,30 @@
   }
 
   function drawCar(ctx, car, race) {
-    const L = 23, W = 13; // half-length, half-width of the body
+    const L = 30, W = 17; // half-length, half-width of the body
 
     // Ground shadow, offset so the car reads as sitting above the tarmac.
     ctx.save();
-    ctx.translate(car.x + 5, car.y + 7);
+    ctx.translate(car.x + 6, car.y + 9);
     ctx.rotate(car.heading);
     ctx.fillStyle = 'rgba(0,0,0,0.30)';
-    rr(ctx, -L, -W, L * 2, W * 2, 7); ctx.fill();
+    rr(ctx, -L, -W, L * 2, W * 2, 9); ctx.fill();
     ctx.restore();
 
     ctx.save();
     ctx.translate(car.x, car.y);
     ctx.rotate(car.heading + car.slip * 0.6);
 
-    // Turbo flame out the back
-    if (car.boost > 0) {
+    // Turbo flame out the back, whether from the meter or a speed strip
+    if (car.boost > 0 || car.boosting) {
       const f = 0.6 + Math.random() * 0.5;
       ctx.fillStyle = 'rgba(255,190,60,0.9)';
       ctx.beginPath();
-      ctx.moveTo(-L, -6); ctx.lineTo(-L - 26 * f, 0); ctx.lineTo(-L, 6);
+      ctx.moveTo(-L, -8); ctx.lineTo(-L - 34 * f, 0); ctx.lineTo(-L, 8);
       ctx.closePath(); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
       ctx.beginPath();
-      ctx.moveTo(-L, -3); ctx.lineTo(-L - 13 * f, 0); ctx.lineTo(-L, 3);
+      ctx.moveTo(-L, -4); ctx.lineTo(-L - 17 * f, 0); ctx.lineTo(-L, 4);
       ctx.closePath(); ctx.fill();
     }
 
@@ -407,32 +407,32 @@
     ctx.fillStyle = '#1b1b22';
     const wheel = (x, y, ang) => {
       ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
-      rr(ctx, -7, -4, 14, 8, 3); ctx.fill();
+      rr(ctx, -9, -5, 18, 10, 4); ctx.fill();
       ctx.restore();
     };
-    wheel(L * 0.55, -W - 2, car.wheelAngle);
-    wheel(L * 0.55, W + 2, car.wheelAngle);
-    wheel(-L * 0.55, -W - 2, 0);
-    wheel(-L * 0.55, W + 2, 0);
+    wheel(L * 0.55, -W - 3, car.wheelAngle);
+    wheel(L * 0.55, W + 3, car.wheelAngle);
+    wheel(-L * 0.55, -W - 3, 0);
+    wheel(-L * 0.55, W + 3, 0);
 
     // Body
     ctx.fillStyle = car.color.body;
-    rr(ctx, -L, -W, L * 2, W * 2, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 2.5; ctx.stroke();
+    rr(ctx, -L, -W, L * 2, W * 2, 9); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 3; ctx.stroke();
 
     // Nose highlight
     ctx.fillStyle = 'rgba(255,255,255,0.20)';
-    rr(ctx, L * 0.35, -W + 2, L * 0.5, W * 2 - 4, 4); ctx.fill();
+    rr(ctx, L * 0.35, -W + 3, L * 0.5, W * 2 - 6, 5); ctx.fill();
 
     // Cockpit / roof
     ctx.fillStyle = car.color.trim;
-    rr(ctx, -L * 0.30, -W * 0.62, L * 0.72, W * 1.24, 4); ctx.fill();
+    rr(ctx, -L * 0.30, -W * 0.62, L * 0.72, W * 1.24, 5); ctx.fill();
     ctx.fillStyle = 'rgba(30,30,45,0.75)';
-    rr(ctx, -L * 0.10, -W * 0.44, L * 0.42, W * 0.88, 3); ctx.fill();
+    rr(ctx, -L * 0.10, -W * 0.44, L * 0.42, W * 0.88, 4); ctx.fill();
 
     // Rear wing
     ctx.fillStyle = '#22222b';
-    rr(ctx, -L - 2, -W - 3, 6, (W + 3) * 2, 2); ctx.fill();
+    rr(ctx, -L - 3, -W - 4, 8, (W + 4) * 2, 3); ctx.fill();
 
     ctx.restore();
 
@@ -445,7 +445,7 @@
       ctx.strokeStyle = 'rgba(255,255,255,0.85)';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.ellipse(0, 3, L + 7, W + 11, car.heading, 0, RC.TAU);
+      ctx.ellipse(0, 4, L + 9, W + 14, car.heading, 0, RC.TAU);
       ctx.stroke();
       ctx.restore();
     }
@@ -458,7 +458,7 @@
         const a = race.time * 9 + i * (RC.TAU / 3);
         ctx.fillStyle = '#ffe066';
         ctx.beginPath();
-        ctx.arc(Math.cos(a) * 26, Math.sin(a) * 13 - 20, 4.5, 0, RC.TAU);
+        ctx.arc(Math.cos(a) * 34, Math.sin(a) * 17 - 26, 5.8, 0, RC.TAU);
         ctx.fill();
       }
       ctx.restore();
@@ -466,7 +466,7 @@
 
     // Dust kicked up when you drop a wheel off the tarmac.
     if (car.offRoad && car.speed > 120 && Math.random() < 0.5) {
-      RC.puff(race, car.x - Math.cos(car.heading) * 22, car.y - Math.sin(car.heading) * 22,
+      RC.puff(race, car.x - Math.cos(car.heading) * 28, car.y - Math.sin(car.heading) * 28,
         race.track.theme.groundAlt, 0.4, 8);
     }
   }
@@ -478,10 +478,10 @@
       ctx.rotate(m.heading);
       ctx.fillStyle = '#ffe0a0';
       ctx.beginPath();
-      ctx.moveTo(14, 0); ctx.lineTo(-8, -6); ctx.lineTo(-5, 0); ctx.lineTo(-8, 6);
+      ctx.moveTo(18, 0); ctx.lineTo(-10, -8); ctx.lineTo(-6, 0); ctx.lineTo(-10, 8);
       ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#ff6b3f';
-      ctx.beginPath(); ctx.arc(-8, 0, 4.5, 0, RC.TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(-10, 0, 5.5, 0, RC.TAU); ctx.fill();
       ctx.restore();
     }
   }

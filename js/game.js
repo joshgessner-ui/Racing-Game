@@ -29,7 +29,7 @@
       points: 0,
       upgrades: { engine: 0, tires: 0, armor: 0 },
       best: {},
-      settings: { response: 2.8, shake: true, sound: true },
+      settings: { steerSpeed: 1.0, shake: true, sound: true },
       championshipDone: false,
     };
   }
@@ -352,7 +352,11 @@
 
     const frac = RC.clamp(car.speed / RC.carMaxSpeed(car), 0, 1);
     $('speedFill').style.width = (frac * 100).toFixed(0) + '%';
-    $('speedFill').classList.toggle('boost', car.boost > 0);
+    $('speedFill').classList.toggle('boost', car.boosting || car.boost > 0);
+
+    // The turbo button fills from the bottom with however much meter is left.
+    $('turboFill').style.transform = 'scaleY(' + car.boostCharge.toFixed(3) + ')';
+    $('btnTurbo').classList.toggle('empty', car.boostCharge < 0.06);
   }
 
   function showResults(race, car, place, advanced, isBest) {
@@ -437,15 +441,15 @@
 
   function applySettings() {
     const st = RC.game.save.settings;
-    RC.input.response = st.response;
+    RC.playerTurnScale = st.steerSpeed;
     RC.view.shakeEnabled = st.shake;
     RC.audio.enabled = st.sound;
   }
 
   function refreshControlUi() {
     const st = RC.game.save.settings;
-    $('resp').value = String(st.response);
-    $('respVal').textContent = st.response.toFixed(1);
+    $('steerSpeed').value = String(st.steerSpeed);
+    $('steerVal').textContent = st.steerSpeed.toFixed(2) + '×';
     $('shake').checked = st.shake;
     $('sound').checked = st.sound;
   }
@@ -502,11 +506,11 @@
     });
 
     // Settings
-    $('resp').addEventListener('input', (e) => {
+    $('steerSpeed').addEventListener('input', (e) => {
       const v = parseFloat(e.target.value);
-      g.save.settings.response = v;
-      RC.input.response = v;
-      $('respVal').textContent = v.toFixed(1);
+      g.save.settings.steerSpeed = v;
+      RC.playerTurnScale = v;
+      $('steerVal').textContent = v.toFixed(2) + '×';
       persist();
     });
     $('shake').addEventListener('change', (e) => {
@@ -548,8 +552,9 @@
     const canvas = $('game');
     RC.initRender(canvas);
     RC.input.attach({
-      stick: $('stick'), knob: $('knob'),
-      brake: $('btnBrake'), fire: $('btnFire'),
+      pad: $('pad'), padU: $('padU'), padL: $('padL'),
+      padR: $('padR'), padD: $('padD'),
+      turbo: $('btnTurbo'), fire: $('btnFire'),
     });
     applySettings();
     bindUi();
