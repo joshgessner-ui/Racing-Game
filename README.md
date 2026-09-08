@@ -1,10 +1,11 @@
 # Turbo Circuit
 
-A tilt-steered top-down racer for phones and tablets, built in the spirit of
+A top-down racer for phones and tablets, built in the spirit of
 **R.C. Pro-Am**: little toy cars, missiles, oil slicks, and upgrades you keep
 for the rest of the championship.
 
-Tilt to steer. Tap anywhere to fire. That's the whole control scheme.
+A four-way cross on the left, turbo and fire on the right. The car
+accelerates itself.
 
 ---
 
@@ -12,53 +13,75 @@ Tilt to steer. Tap anywhere to fire. That's the whole control scheme.
 
 **On your phone or tablet — the way it's meant to be played:**
 
-1. Turn on GitHub Pages for this repository: **Settings → Pages → Source: Deploy from a branch → `main` / `(root)` → Save.**
-2. Wait a minute, then open the URL GitHub gives you (something like
-   `https://joshgessner-ui.github.io/racing-game/`).
-3. In Safari or Chrome on your device, tap **Share → Add to Home Screen**. It
-   then opens fullscreen with no address bar, like a real app.
+1. On GitHub, go to **Settings → Pages**.
+2. Under **Source**, choose **Deploy from a branch**, then set the branch to
+   **`main`** and the folder to **`/ (root)`**. Click **Save**.
+3. Wait a minute or two, then refresh that page — GitHub shows you the live
+   link at the top. It will be:
 
-Tilt steering needs an `https://` address, which is why the GitHub Pages link
-matters — it won't work from a file on your desktop.
+   **https://joshgessner-ui.github.io/Racing-Game/**
+
+4. Open that link on your phone, then tap **Share → Add to Home Screen**. It
+   opens fullscreen with no address bar after that, like a real app.
+
+That's the whole deployment. There's no build step and nothing to install —
+the repository *is* the website, so every push updates the live game
+automatically.
 
 **On a computer, to try it quickly:** double-click `index.html`. Steer with the
 arrow keys, fire with the spacebar.
 
----
-
 ## The rules
 
-- Your car accelerates by itself. You only ever steer.
-- Finish in the **top three** to unlock the next circuit. Below that, you retry.
+- **Steering.** Left and right on the cross turn your car, for as long as you
+  hold them. Let go and it holds the line it's on. It's a steering wheel, not
+  a compass — you're turning the car, not pointing it at a spot on the map.
+- **BRAKE** is the bottom of the cross. Your car speeds up on its own, so
+  braking is your only way to slow down — and it also turns you about a
+  quarter quicker, which is how you get round the tight stuff. You can hold
+  brake and a direction together; press down-and-left on the cross.
+- **TURBO** is a burst of speed from a meter that refills when you're not
+  using it: about two seconds of boost when full, seven and a half to refill.
+  Every car on the grid has one.
+- **FIRE** uses your item. The button shows what you're carrying.
+- Finish in the **top three** to unlock the next circuit.
 - **🚀 Missile** — fires forward, spins out whoever it hits.
 - **🛢️ Oil** — drops behind you for whoever is chasing.
-- **⚡ Turbo** — an instant burst of speed.
+- **⚡ Turbo pickup** — instantly refills your turbo meter.
 - **Yellow squares** are upgrades: engine, tyres, roll cage. You keep them for
-  the whole championship, so a good early race makes every later one easier.
-  They sit off the racing line on purpose — grabbing one costs you time.
+  the whole championship — including on races you don't win — so they're
+  always worth the detour off the racing line. They're also the difficulty
+  dial: on the last circuit, no upgrades finishes about sixth, a full set
+  about second.
 - **Glowing arrows** on the tarmac are speed strips. Free speed, if you can hit them.
 - There's dirt either side of the tarmac and a barrier beyond it. The dirt is
   slow, so cutting a corner never pays.
 
-Five circuits, getting harder. The first one you can take almost flat out; the
-last has a hairpin you have to genuinely slow down for.
+Five circuits, getting harder. The first you can take almost flat out; the last
+has a hairpin you genuinely have to brake for.
 
 ---
 
-## If the steering feels wrong
+## If the handling feels wrong
 
-Everything below is under **Controls** on the main menu.
+Under **Controls** on the main menu:
 
 | Problem | Fix |
 |---|---|
-| The car drifts to one side when you hold still | **Centre steering** — hold the device how you want to play, then tap it |
-| Too twitchy / not responsive enough | **Sensitivity** slider |
-| Steering is backwards | **Reverse steering** |
-| Nothing happens when you tilt | Switch to **Touch** — hold the left or right half of the screen |
+| The car turns too slowly | Turn **Steering speed** up |
+| The car is twitchy and hard to hold straight | Turn **Steering speed** down |
+| Bumps and explosions make you queasy | Turn **Screen shake** off |
 
-On iPhone and iPad the browser asks permission to use motion sensors the first
-time. If you decline it, the game quietly switches to touch steering; you can
-re-enable tilt from the Controls screen.
+**On motion sickness.** The camera never rotates — north on the track is
+always up on the screen, and the view just slides along to follow you, the way
+the original RC Pro-Am worked. If anything still bothers you, turning screen
+shake off removes the last camera movement that isn't your own driving.
+
+**One consequence of that fixed camera** worth knowing: when you're driving
+down the screen, pressing right turns the car right *from the car's point of
+view*, which looks like moving left on screen. That's how RC Pro-Am handled it
+too. The alternative is turning the camera with the car, which is what made
+you ill.
 
 ---
 
@@ -72,7 +95,7 @@ change a number, refresh the page.
 |---|---|
 | `js/util.js` | Small maths helpers. No game logic. |
 | `js/audio.js` | Every sound, generated in code — there are no audio files. |
-| `js/input.js` | Reading tilt, with touch and keyboard fallbacks. |
+| `js/input.js` | The cross and the two buttons, plus keyboard for desktop. |
 | `js/track.js` | Turns a handful of points into a circuit, and answers "am I on the road?", "what lap is this?" |
 | `js/tracks.js` | **The five circuits.** The most fun file to experiment with. |
 | `js/car.js` | How a car moves, and how the computer drivers think. |
@@ -86,7 +109,8 @@ change a number, refresh the page.
   that repeats twice per lap gives long sweepers; one that repeats six times
   gives tight technical corners. Change an `amp` and watch the track change.
 - **`js/car.js`, the `BASE` block at the top** — `maxSpeed`, `turnRate`,
-  `accel`. This is the feel of the game in five numbers.
+  `accel`. This is the feel of the game in five numbers. `turnRate` is the one
+  that decides how sharp the steering feels.
 - **`js/tracks.js`, the `theme` on each track** — the colours.
 
 A note on the file structure: each file wraps its contents in
@@ -103,6 +127,12 @@ it appears in the championship automatically. Nothing else needs editing —
 pickups, the minimap, the AI's racing line and the start grid are all worked
 out from the track shape.
 
-The one rule: keep it built from `ring({...})`. Because every point is a
+Two rules. Keep it built from `ring({...})` — because every point is a
 distance out from a centre, the track can never cross over itself, which would
 break the lap counting.
+
+And keep `halfWidth` comfortably under the radius of your tightest corner. If
+the tarmac is wider than the corner is tight, the inside edge folds back
+through itself and both the drawing and the collision break. Corner tightness
+and track width are not independent: the width you can have is set by the
+sharpest corner you keep.

@@ -29,7 +29,7 @@
       points: 0,
       upgrades: { engine: 0, tires: 0, armor: 0 },
       best: {},
-      settings: { sensitivity: 1.0, invert: false, sound: true, mode: 'tilt' },
+      settings: { steerSpeed: 1.0, shake: true, sound: true },
       championshipDone: false,
     };
   }
@@ -108,9 +108,10 @@
         const spread = (aiCount - 2) * 0.07;
         const skill = RC.clamp(aiSkillBase + spread + (rng() - 0.5) * 0.06, 0.05, 0.97);
         car.ai = RC.makeAiBrain(skill, rng);
-        // The computer cars get upgrades too on later rounds, so the field
-        // scales up with you instead of being left behind.
-        const tier = Math.min(3, Math.floor(raceIndex * 0.7));
+          // The computer cars get upgrades too on later rounds, so the field
+        // scales up with you instead of being left behind - but more slowly
+        // than you can, so collecting them stays worth the detour.
+        const tier = Math.min(2, Math.floor(raceIndex * 0.5));
         car.engine = tier; car.tires = tier; car.armor = Math.max(0, tier - 1);
         aiCount++;
       }
@@ -125,6 +126,9 @@
     RC.input.reset();
     updateHudStatic();
     showScreen(null);
+    // Measure the stick only once the HUD is actually on screen - a hidden
+    // element reports no size, and the stick needs its real travel radius.
+    RC.input.layout();
     return race;
   };
 
@@ -258,9 +262,15 @@
     if (isBest) g.save.best[race.track.name] = car.finishTime;
 
     const advanced = place <= PODIUM;
+
+    // Upgrades you picked up are yours whether or not you made the podium.
+    // Losing them on a fourth-place finish meant a player who was struggling
+    // retried the same race over and over, handing back every wrench they had
+    // collected each time - the difficulty went up as they got more stuck.
+    g.save.upgrades = { engine: car.engine, tires: car.tires, armor: car.armor };
+
     if (advanced) {
       g.save.points += POINTS[place - 1] || 0;
-      g.save.upgrades = { engine: car.engine, tires: car.tires, armor: car.armor };
       if (race.raceIndex + 1 >= RC.TRACK_DEFS.length) {
         g.save.championshipDone = true;
       } else {
@@ -335,14 +345,18 @@
     const it = car.item || 'none';
     if (it !== lastItem) {
       lastItem = it;
-      const slot = $('itemSlot');
-      slot.textContent = car.item ? ITEM_ICON[car.item] : '';
-      slot.classList.toggle('full', !!car.item);
+      // The fire button IS the item slot - one thing to look at, not two.
+      $('fireIcon').textContent = car.item ? ITEM_ICON[car.item] : 'FIRE';
+      $('btnFire').classList.toggle('armed', !!car.item);
     }
 
     const frac = RC.clamp(car.speed / RC.carMaxSpeed(car), 0, 1);
     $('speedFill').style.width = (frac * 100).toFixed(0) + '%';
-    $('speedFill').classList.toggle('boost', car.boost > 0);
+    $('speedFill').classList.toggle('boost', car.boosting || car.boost > 0);
+
+    // The turbo button fills from the bottom with however much meter is left.
+    $('turboFill').style.transform = 'scaleY(' + car.boostCharge.toFixed(3) + ')';
+    $('btnTurbo').classList.toggle('empty', car.boostCharge < 0.06);
   }
 
   function showResults(race, car, place, advanced, isBest) {
@@ -425,36 +439,19 @@
 
   /* ---------- Control settings ---------- */
 
-  function refreshControlUi() {
-    const s = RC.game.save.settings;
-    $('sens').value = String(s.sensitivity);
-    $('sensVal').textContent = s.sensitivity.toFixed(1) + '×';
-    $('invert').checked = s.invert;
-    $('sound').checked = s.sound;
-    document.querySelectorAll('[data-mode]').forEach(b =>
-      b.classList.toggle('sel', b.dataset.mode === RC.input.mode));
-
-    let status;
-    if (RC.input.mode === 'touch') {
-      status = RC.input.tiltPermission === 'denied'
-        ? 'Motion access was declined — using touch steering.'
-        : RC.input.tiltPermission === 'unsupported'
-          ? 'This device has no tilt sensor — using touch steering.'
-          : 'Touch steering: hold the left or right half of the screen.';
-    } else {
-      status = RC.input.tiltAvailable
-        ? 'Tilt steering is live. Recalibrate if it pulls to one side.'
-        : 'Waiting for the motion sensor…';
-    }
-    $('tiltStatus').textContent = status;
+  function applySettings() {
+    const st = RC.game.save.settings;
+    RC.playerTurnScale = st.steerSpeed;
+    RC.view.shakeEnabled = st.shake;
+    RC.audio.enabled = st.sound;
   }
 
-  async function enableTilt() {
-    const ok = await RC.input.requestTilt();
-    RC.game.save.settings.mode = RC.input.mode;
-    persist();
-    refreshControlUi();
-    return ok;
+  function refreshControlUi() {
+    const st = RC.game.save.settings;
+    $('steerSpeed').value = String(st.steerSpeed);
+    $('steerVal').textContent = st.steerSpeed.toFixed(2) + '×';
+    $('shake').checked = st.shake;
+    $('sound').checked = st.sound;
   }
 
   /* ---------- Wiring up the buttons ---------- */
@@ -469,24 +466,14 @@
       RC.startRace(parseInt(btn.dataset.race, 10));
     });
 
-    $('btnStart').addEventListener('click', async () => {
+    $('btnStart').addEventListener('click', () => {
       RC.audio.start();
-      if (g.save.settings.mode === 'tilt') await enableTilt();
       RC.startRace(Math.min(g.save.raceIndex, RC.TRACK_DEFS.length - 1));
     });
 
     $('btnTracks').addEventListener('click', () => { buildMenu(); showScreen('tracks'); g.screen = 'tracks'; });
-    $('btnSettings').addEventListener('click', async () => {
-      refreshControlUi();
-      showScreen('settings');
-      g.screen = 'settings';
-      // Probe the motion sensor on the way in. Without this the screen sits
-      // there saying "waiting for the motion sensor" on a device that hasn't
-      // got one, because nothing had asked it yet.
-      if (RC.input.mode === 'tilt' && RC.input.tiltPermission === 'unknown') {
-        RC.audio.start();
-        await enableTilt();
-      }
+    $('btnSettings').addEventListener('click', () => {
+      refreshControlUi(); showScreen('settings'); g.screen = 'settings';
     });
     $('btnHowto').addEventListener('click', () => { showScreen('howto'); g.screen = 'howto'; });
 
@@ -511,10 +498,6 @@
       RC.input.reset();
       showScreen(null);
     });
-    $('btnPauseCalib').addEventListener('click', () => {
-      RC.input.calibrate();
-      showToast('Centred', '#7fe8ff');
-    });
     $('btnPauseQuit').addEventListener('click', () => {
       g.paused = false;
       g.screen = 'menu';
@@ -523,16 +506,16 @@
     });
 
     // Settings
-    $('sens').addEventListener('input', (e) => {
+    $('steerSpeed').addEventListener('input', (e) => {
       const v = parseFloat(e.target.value);
-      g.save.settings.sensitivity = v;
-      RC.input.sensitivity = v;
-      $('sensVal').textContent = v.toFixed(1) + '×';
+      g.save.settings.steerSpeed = v;
+      RC.playerTurnScale = v;
+      $('steerVal').textContent = v.toFixed(2) + '×';
       persist();
     });
-    $('invert').addEventListener('change', (e) => {
-      g.save.settings.invert = e.target.checked;
-      RC.input.invert = e.target.checked;
+    $('shake').addEventListener('change', (e) => {
+      g.save.settings.shake = e.target.checked;
+      RC.view.shakeEnabled = e.target.checked;
       persist();
     });
     $('sound').addEventListener('change', (e) => {
@@ -541,21 +524,6 @@
       RC.audio.setEnabled(e.target.checked);
       persist();
     });
-    $('btnCalibrate').addEventListener('click', () => {
-      RC.input.calibrate();
-      $('tiltStatus').textContent = 'Centred on how you are holding it right now.';
-    });
-    document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', async () => {
-      RC.audio.start();
-      if (b.dataset.mode === 'tilt') {
-        await enableTilt();
-      } else {
-        RC.input.mode = 'touch';
-        g.save.settings.mode = 'touch';
-        persist();
-      }
-      refreshControlUi();
-    }));
 
     $('btnReset').addEventListener('click', () => {
       if (!confirm('Erase all progress and upgrades?')) return;
@@ -580,14 +548,15 @@
 
   window.addEventListener('load', () => {
     RC.game.save = loadGame();
-    RC.input.sensitivity = RC.game.save.settings.sensitivity;
-    RC.input.invert = RC.game.save.settings.invert;
-    RC.input.mode = RC.game.save.settings.mode;
-    RC.audio.enabled = RC.game.save.settings.sound;
 
     const canvas = $('game');
     RC.initRender(canvas);
-    RC.input.attach(canvas);
+    RC.input.attach({
+      pad: $('pad'), padU: $('padU'), padL: $('padL'),
+      padR: $('padR'), padD: $('padD'),
+      turbo: $('btnTurbo'), fire: $('btnFire'),
+    });
+    applySettings();
     bindUi();
     buildMenu();
     showScreen('menu');

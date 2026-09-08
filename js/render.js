@@ -1,11 +1,16 @@
 /* ============================================================
    render.js — everything you see.
 
-   The camera sits behind your car and rotates with it, so your car always
-   points up the screen. That matters for tilt steering: tilt left and the
-   world swings right, which is what your hands expect. The original
-   RC Pro-Am used a fixed overhead view, so the minimap in the corner keeps
-   that top-down read of the whole circuit.
+   The camera never rotates. North on the track is always up on the screen,
+   and the view simply slides along to follow your car, exactly as the
+   original RC Pro-Am did.
+
+   This matters more than it sounds. An earlier version turned the camera
+   with the car so that you always pointed up the screen, which is the right
+   choice for tilt steering - but a world that swings round you every time
+   you take a corner makes a lot of people motion sick, and it is not what
+   RC Pro-Am looked like. A fixed camera also makes the thumbstick honest:
+   up on the stick is up on the screen, wherever you are on the lap.
    ============================================================ */
 
 (function () {
@@ -15,8 +20,8 @@
   RC.view = {
     canvas: null, ctx: null,
     w: 0, h: 0, dpr: 1,
-    camX: 0, camY: 0, camRot: 0, zoom: 1, anchorY: 0.62,
-    shakeX: 0, shakeY: 0, shake: 0,
+    camX: 0, camY: 0, camRot: 0, zoom: 1,
+    shakeX: 0, shakeY: 0, shake: 0, shakeEnabled: true,
     _visible: null,
   };
 
@@ -43,16 +48,11 @@
     v.canvas.style.width = v.w + 'px';
     v.canvas.style.height = v.h + 'px';
 
-    // Zoom so that roughly the same amount of track is visible AHEAD of you on
-    // every device. That has to key off the screen's height, because the car
-    // always drives up the screen - keying off the shorter edge meant a tablet
-    // in landscape saw less than half as far ahead as a phone, and you cannot
-    // drive what you cannot see coming.
-    v.zoom = RC.clamp(v.h / 1550, 0.32, 1.1);
-
-    // A short, wide screen - a phone turned sideways - has very little room
-    // above the car. Sitting the car lower down buys back the forward view.
-    v.anchorY = (v.w / v.h > 1.4) ? 0.75 : 0.62;
+    // With a fixed camera your car sits in the middle of the screen and you
+    // need to see roughly the same distance in EVERY direction, so this keys
+    // off the shorter edge. Every device ends up showing about 900 units of
+    // track across the narrow side of the screen.
+    v.zoom = RC.clamp(Math.min(v.w, v.h) / 900, 0.35, 0.85);
   };
 
   // Rounded rectangle. Written by hand because ctx.roundRect is missing on
@@ -75,30 +75,28 @@
     const car = race.playerCar;
     if (!car) return;
 
-    // Aim a little in front of the car so you can see the corner coming.
-    const lead = RC.clamp(car.speed * 0.30, 0, 220);
+    // Look a little way in the direction of travel, so you get some warning
+    // of what is coming rather than seeing the corner only once you're in it.
+    const lead = RC.clamp(car.speed * 0.22, 0, 150);
     const tx = car.x + Math.cos(car.heading) * lead;
     const ty = car.y + Math.sin(car.heading) * lead;
 
-    v.camX = RC.damp(v.camX, tx, 7.5, dt);
-    v.camY = RC.damp(v.camY, ty, 7.5, dt);
+    v.camX = RC.damp(v.camX, tx, 6.5, dt);
+    v.camY = RC.damp(v.camY, ty, 6.5, dt);
 
-    // Rotate so the car faces up the screen. Going through angleDelta means
-    // the camera never spins the long way round at the -180/+180 boundary.
-    const wantRot = -car.heading - Math.PI / 2;
-    v.camRot += RC.angleDelta(v.camRot, wantRot) * (1 - Math.exp(-6.5 * dt));
+    // Deliberately never rotated. See the note at the top of this file.
+    v.camRot = 0;
 
-    if (v.shake > 0) {
+    if (v.shake > 0 && RC.view.shakeEnabled) {
       v.shake = Math.max(0, v.shake - dt * 26);
       v.shakeX = (Math.random() - 0.5) * v.shake;
       v.shakeY = (Math.random() - 0.5) * v.shake;
-    } else { v.shakeX = v.shakeY = 0; }
+    } else { v.shake = 0; v.shakeX = v.shakeY = 0; }
   };
 
   function applyWorldTransform(ctx, v) {
     ctx.setTransform(v.dpr, 0, 0, v.dpr, 0, 0);
-    ctx.translate(v.w / 2 + v.shakeX, v.h * v.anchorY + v.shakeY); // car sits low on screen
-    ctx.rotate(v.camRot);
+    ctx.translate(v.w / 2 + v.shakeX, v.h / 2 + v.shakeY);
     ctx.scale(v.zoom, v.zoom);
     ctx.translate(-v.camX, -v.camY);
   }
@@ -299,10 +297,10 @@
         ctx.fillStyle = th.accent;
         ctx.globalAlpha = pulse;
         ctx.beginPath();
-        ctx.moveTo(-22 + k * 20, -30);
-        ctx.lineTo(-4 + k * 20, 0);
-        ctx.lineTo(-22 + k * 20, 30);
-        ctx.lineTo(-14 + k * 20, 0);
+        ctx.moveTo(-28 + k * 25, -38);
+        ctx.lineTo(-5 + k * 25, 0);
+        ctx.lineTo(-28 + k * 25, 38);
+        ctx.lineTo(-18 + k * 25, 0);
         ctx.closePath(); ctx.fill();
       }
       ctx.globalAlpha = 1;
@@ -338,25 +336,26 @@
 
       // Shadow on the tarmac
       ctx.fillStyle = 'rgba(0,0,0,0.28)';
-      ctx.beginPath(); ctx.ellipse(0, 10 - bob, 18, 8, 0, 0, RC.TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0, 12 - bob, 22, 10, 0, 0, RC.TAU); ctx.fill();
 
-      ctx.rotate(-RC.view.camRot); // keep icons upright no matter the camera
+      // No un-rotating needed: the camera never turns, so an icon drawn
+      // upright stays upright.
       if (it.kind === 'crate') {
-        const s = 15;
+        const s = 19;
         ctx.fillStyle = '#f6f2e8';
         rr(ctx, -s, -s, s * 2, s * 2, 5); ctx.fill();
         ctx.strokeStyle = '#2b2b33'; ctx.lineWidth = 3; ctx.stroke();
         ctx.fillStyle = '#ff4d5e';
-        ctx.font = 'bold 20px system-ui, sans-serif';
+        ctx.font = 'bold 25px system-ui, sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText('?', 0, 1);
       } else {
-        const s = 17;
+        const s = 21;
         ctx.fillStyle = '#ffd23f';
         rr(ctx, -s, -s, s * 2, s * 2, 7); ctx.fill();
         ctx.strokeStyle = '#4a3a00'; ctx.lineWidth = 3; ctx.stroke();
         ctx.fillStyle = '#4a3a00';
-        ctx.font = 'bold 17px system-ui, sans-serif';
+        ctx.font = 'bold 21px system-ui, sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(it.upgrade === 'engine' ? 'E' : it.upgrade === 'tires' ? 'T' : 'C', 0, 1);
       }
@@ -377,30 +376,30 @@
   }
 
   function drawCar(ctx, car, race) {
-    const L = 23, W = 13; // half-length, half-width of the body
+    const L = 30, W = 17; // half-length, half-width of the body
 
     // Ground shadow, offset so the car reads as sitting above the tarmac.
     ctx.save();
-    ctx.translate(car.x + 5, car.y + 7);
+    ctx.translate(car.x + 6, car.y + 9);
     ctx.rotate(car.heading);
     ctx.fillStyle = 'rgba(0,0,0,0.30)';
-    rr(ctx, -L, -W, L * 2, W * 2, 7); ctx.fill();
+    rr(ctx, -L, -W, L * 2, W * 2, 9); ctx.fill();
     ctx.restore();
 
     ctx.save();
     ctx.translate(car.x, car.y);
     ctx.rotate(car.heading + car.slip * 0.6);
 
-    // Turbo flame out the back
-    if (car.boost > 0) {
+    // Turbo flame out the back, whether from the meter or a speed strip
+    if (car.boost > 0 || car.boosting) {
       const f = 0.6 + Math.random() * 0.5;
       ctx.fillStyle = 'rgba(255,190,60,0.9)';
       ctx.beginPath();
-      ctx.moveTo(-L, -6); ctx.lineTo(-L - 26 * f, 0); ctx.lineTo(-L, 6);
+      ctx.moveTo(-L, -8); ctx.lineTo(-L - 34 * f, 0); ctx.lineTo(-L, 8);
       ctx.closePath(); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
       ctx.beginPath();
-      ctx.moveTo(-L, -3); ctx.lineTo(-L - 13 * f, 0); ctx.lineTo(-L, 3);
+      ctx.moveTo(-L, -4); ctx.lineTo(-L - 17 * f, 0); ctx.lineTo(-L, 4);
       ctx.closePath(); ctx.fill();
     }
 
@@ -408,32 +407,32 @@
     ctx.fillStyle = '#1b1b22';
     const wheel = (x, y, ang) => {
       ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
-      rr(ctx, -7, -4, 14, 8, 3); ctx.fill();
+      rr(ctx, -9, -5, 18, 10, 4); ctx.fill();
       ctx.restore();
     };
-    wheel(L * 0.55, -W - 2, car.wheelAngle);
-    wheel(L * 0.55, W + 2, car.wheelAngle);
-    wheel(-L * 0.55, -W - 2, 0);
-    wheel(-L * 0.55, W + 2, 0);
+    wheel(L * 0.55, -W - 3, car.wheelAngle);
+    wheel(L * 0.55, W + 3, car.wheelAngle);
+    wheel(-L * 0.55, -W - 3, 0);
+    wheel(-L * 0.55, W + 3, 0);
 
     // Body
     ctx.fillStyle = car.color.body;
-    rr(ctx, -L, -W, L * 2, W * 2, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 2.5; ctx.stroke();
+    rr(ctx, -L, -W, L * 2, W * 2, 9); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 3; ctx.stroke();
 
     // Nose highlight
     ctx.fillStyle = 'rgba(255,255,255,0.20)';
-    rr(ctx, L * 0.35, -W + 2, L * 0.5, W * 2 - 4, 4); ctx.fill();
+    rr(ctx, L * 0.35, -W + 3, L * 0.5, W * 2 - 6, 5); ctx.fill();
 
     // Cockpit / roof
     ctx.fillStyle = car.color.trim;
-    rr(ctx, -L * 0.30, -W * 0.62, L * 0.72, W * 1.24, 4); ctx.fill();
+    rr(ctx, -L * 0.30, -W * 0.62, L * 0.72, W * 1.24, 5); ctx.fill();
     ctx.fillStyle = 'rgba(30,30,45,0.75)';
-    rr(ctx, -L * 0.10, -W * 0.44, L * 0.42, W * 0.88, 3); ctx.fill();
+    rr(ctx, -L * 0.10, -W * 0.44, L * 0.42, W * 0.88, 4); ctx.fill();
 
     // Rear wing
     ctx.fillStyle = '#22222b';
-    rr(ctx, -L - 2, -W - 3, 6, (W + 3) * 2, 2); ctx.fill();
+    rr(ctx, -L - 3, -W - 4, 8, (W + 4) * 2, 3); ctx.fill();
 
     ctx.restore();
 
@@ -446,7 +445,7 @@
       ctx.strokeStyle = 'rgba(255,255,255,0.85)';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.ellipse(0, 3, L + 7, W + 11, car.heading, 0, RC.TAU);
+      ctx.ellipse(0, 4, L + 9, W + 14, car.heading, 0, RC.TAU);
       ctx.stroke();
       ctx.restore();
     }
@@ -459,7 +458,7 @@
         const a = race.time * 9 + i * (RC.TAU / 3);
         ctx.fillStyle = '#ffe066';
         ctx.beginPath();
-        ctx.arc(Math.cos(a) * 26, Math.sin(a) * 13 - 20, 4.5, 0, RC.TAU);
+        ctx.arc(Math.cos(a) * 34, Math.sin(a) * 17 - 26, 5.8, 0, RC.TAU);
         ctx.fill();
       }
       ctx.restore();
@@ -467,7 +466,7 @@
 
     // Dust kicked up when you drop a wheel off the tarmac.
     if (car.offRoad && car.speed > 120 && Math.random() < 0.5) {
-      RC.puff(race, car.x - Math.cos(car.heading) * 22, car.y - Math.sin(car.heading) * 22,
+      RC.puff(race, car.x - Math.cos(car.heading) * 28, car.y - Math.sin(car.heading) * 28,
         race.track.theme.groundAlt, 0.4, 8);
     }
   }
@@ -479,10 +478,10 @@
       ctx.rotate(m.heading);
       ctx.fillStyle = '#ffe0a0';
       ctx.beginPath();
-      ctx.moveTo(14, 0); ctx.lineTo(-8, -6); ctx.lineTo(-5, 0); ctx.lineTo(-8, 6);
+      ctx.moveTo(18, 0); ctx.lineTo(-10, -8); ctx.lineTo(-6, 0); ctx.lineTo(-10, 8);
       ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#ff6b3f';
-      ctx.beginPath(); ctx.arc(-8, 0, 4.5, 0, RC.TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(-10, 0, 5.5, 0, RC.TAU); ctx.fill();
       ctx.restore();
     }
   }

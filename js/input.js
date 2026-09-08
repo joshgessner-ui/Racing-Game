@@ -1,13 +1,20 @@
 /* ============================================================
-   input.js — reading the player's steering.
+   input.js — reading the player's controls.
 
-   Three sources, in priority order:
-     1. TILT   — physically tilting the phone/tablet (the default).
-     2. TOUCH  — hold the left/right half of the screen (fallback).
-     3. KEYS   — arrow keys, so you can test on a laptop.
+   A four-way cross on the left, two buttons on the right.
 
-   Everything below produces one number: RC.input.steer,
-   which is -1 (hard left) .. 0 (straight) .. +1 (hard right).
+     LEFT / RIGHT  turn the car, for as long as you hold them
+     DOWN          brake
+     UP            nothing (it's there so the cross looks like a cross)
+     TURBO         a burst of speed from a meter that refills
+     FIRE          use whatever item you're carrying
+
+   Left and right ROTATE the car rather than pointing it somewhere. Hold
+   right and it keeps turning; let go and it holds the line it's on. That is
+   how R.C. Pro-Am worked, and it's why the controls no longer fight you:
+   an earlier version aimed the car at a compass bearing, so holding a
+   direction through a curve made the car stubbornly sit on that bearing
+   while the track bent away underneath it.
    ============================================================ */
 
 (function () {
@@ -15,201 +22,180 @@
   const RC = window.RC;
 
   RC.input = {
-    steer: 0,          // the final steering value the car reads
-    firePressed: false, // set true for one frame when the player taps
-    mode: 'tilt',      // 'tilt' | 'touch'
-    tiltAvailable: false,
-    tiltPermission: 'unknown', // 'unknown' | 'granted' | 'denied' | 'unsupported'
-    sensitivity: 1.0,  // how far you must tilt. Higher = twitchier.
-    invert: false,
-    deadzone: 2.5,     // degrees of tilt ignored, so a resting hand drives straight
+    steer: 0,          // -1 hard left .. +1 hard right
+    brake: false,
+    turbo: false,
+    firePressed: false,
 
-    _rawTilt: 0,       // most recent tilt reading, in degrees
-    _neutral: 0,       // the "holding it comfortably" angle captured on calibration
-    _touchSteer: 0,
-    _keySteer: 0,
-    _smoothed: 0,
+    _pad: null,        // which finger is on the d-pad
+    _turboTouch: null,
+    _fireTouch: null,
+    _cx: 0, _cy: 0, _r: 60,   // d-pad centre and size
+    _held: { l: false, r: false, u: false, d: false },
+    _keys: new Set(),
+    _el: {},
   };
 
-  /* ---------- Tilt ---------- */
+  const I = RC.input;
 
-  // A phone reports its orientation as three angles. Which one means
-  // "tilted left/right" depends on whether you're holding the device in
-  // portrait or landscape, so we rotate the reading to match the screen.
-  function tiltFromEvent(e) {
-    const beta = e.beta || 0;   // front-to-back tilt
-    const gamma = e.gamma || 0; // left-to-right tilt
+  /* ---------- Wiring ---------- */
 
-    let angle = 0;
-    if (screen.orientation && typeof screen.orientation.angle === 'number') {
-      angle = screen.orientation.angle;
-    } else if (typeof window.orientation === 'number') {
-      angle = window.orientation;
-    }
-    const rad = angle * Math.PI / 180;
+  RC.input.attach = function (els) {
+    I._el = els;
+    layoutPad();
+    window.addEventListener('resize', layoutPad);
 
-    // In portrait (angle 0) this is just gamma. In landscape it becomes beta.
-    return gamma * Math.cos(rad) + beta * Math.sin(rad);
-  }
+    // One set of listeners on the window handles every finger at once, so you
+    // can steer, brake and fire in the same instant.
+    window.addEventListener('touchstart', onStart, { passive: false });
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd, { passive: false });
+    window.addEventListener('touchcancel', onEnd, { passive: false });
 
-  function onOrientation(e) {
-    if (e.gamma === null && e.beta === null) return; // no real sensor data
-    RC.input.tiltAvailable = true;
-    RC.input._rawTilt = tiltFromEvent(e);
-  }
+    // Mouse and keyboard, so the game is playable on a laptop.
+    els.pad.addEventListener('mousedown', (e) => { I._pad = 'mouse'; readPad(e.clientX, e.clientY); });
+    window.addEventListener('mousemove', (e) => { if (I._pad === 'mouse') readPad(e.clientX, e.clientY); });
+    window.addEventListener('mouseup', () => {
+      if (I._pad === 'mouse') releasePad();
+      I.turbo = false; press(els.turbo, false); press(els.fire, false);
+    });
+    els.fire.addEventListener('mousedown', () => { I.firePressed = true; press(els.fire, true); });
+    els.turbo.addEventListener('mousedown', () => { I.turbo = true; press(els.turbo, true); });
 
-  // iOS 13+ requires an explicit permission prompt, and it must be triggered
-  // by a real tap. That's why this is called from a button, not on page load.
-  RC.input.requestTilt = async function () {
-    const DOE = window.DeviceOrientationEvent;
-    if (!DOE) {
-      RC.input.tiltPermission = 'unsupported';
-      RC.input.mode = 'touch';
-      return false;
-    }
-
-    if (typeof DOE.requestPermission === 'function') {
-      try {
-        const res = await DOE.requestPermission();
-        if (res !== 'granted') {
-          RC.input.tiltPermission = 'denied';
-          RC.input.mode = 'touch';
-          return false;
-        }
-      } catch (err) {
-        RC.input.tiltPermission = 'denied';
-        RC.input.mode = 'touch';
-        return false;
-      }
-    }
-
-    RC.input.tiltPermission = 'granted';
-    window.addEventListener('deviceorientation', onOrientation, true);
-
-    // The sensor may simply never fire (desktop, tablet with no gyro).
-    // Give it a moment, and quietly fall back to touch if nothing arrives.
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    if (!RC.input.tiltAvailable) {
-      RC.input.tiltPermission = 'unsupported';
-      RC.input.mode = 'touch';
-      return false;
-    }
-
-    RC.input.mode = 'tilt';
-    RC.input.calibrate();
-    return true;
+    window.addEventListener('keydown', onKey(true));
+    window.addEventListener('keyup', onKey(false));
   };
 
-  // Capture however the player is currently holding the device and call
-  // that "straight ahead". Lets you play lying down, in a car seat, anywhere.
-  RC.input.calibrate = function () {
-    RC.input._neutral = RC.input._rawTilt;
-  };
-
-  /* ---------- Touch fallback + tap-to-fire ---------- */
-
-  RC.input.attach = function (el) {
-    const active = new Map(); // touch id -> which half of the screen
-
-    function halfOf(clientX) {
-      return clientX < window.innerWidth / 2 ? -1 : 1;
-    }
-
-    function recompute() {
-      let s = 0;
-      for (const dir of active.values()) s += dir;
-      RC.input._touchSteer = RC.clamp(s, -1, 1);
-    }
-
-    el.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      for (const t of e.changedTouches) active.set(t.identifier, halfOf(t.clientX));
-      recompute();
-      RC.input.firePressed = true; // every tap also fires your item
-    }, { passive: false });
-
-    el.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      for (const t of e.changedTouches) {
-        if (active.has(t.identifier)) active.set(t.identifier, halfOf(t.clientX));
-      }
-      recompute();
-    }, { passive: false });
-
-    const end = (e) => {
-      for (const t of e.changedTouches) active.delete(t.identifier);
-      recompute();
+  function onKey(down) {
+    return (e) => {
+      const map = { ArrowLeft: 'l', a: 'l', ArrowRight: 'r', d: 'r',
+                    ArrowDown: 'd2', s: 'd2', ArrowUp: 'u', w: 'u' };
+      const k = map[e.key];
+      if (k) { down ? I._keys.add(k) : I._keys.delete(k); e.preventDefault(); }
+      if (e.key === 'Shift') { I.turbo = down; press(I._el.turbo, down); }
+      if (down && (e.key === ' ' || e.key === 'Enter')) { I.firePressed = true; e.preventDefault(); }
     };
-    el.addEventListener('touchend', end);
-    el.addEventListener('touchcancel', end);
+  }
 
-    // Mouse, so the game is playable while you're building it on a laptop.
-    let mouseDown = false;
-    el.addEventListener('mousedown', (e) => {
-      mouseDown = true;
-      RC.input._touchSteer = halfOf(e.clientX);
-      RC.input.firePressed = true;
-    });
-    el.addEventListener('mousemove', (e) => {
-      if (mouseDown) RC.input._touchSteer = halfOf(e.clientX);
-    });
-    window.addEventListener('mouseup', () => { mouseDown = false; RC.input._touchSteer = 0; });
+  /* ---------- The cross ---------- */
 
-    // Keyboard
-    const keys = new Set();
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft' || e.key === 'a') keys.add('l');
-      if (e.key === 'ArrowRight' || e.key === 'd') keys.add('r');
-      if (e.key === ' ' || e.key === 'Enter') { RC.input.firePressed = true; e.preventDefault(); }
-    });
-    window.addEventListener('keyup', (e) => {
-      if (e.key === 'ArrowLeft' || e.key === 'a') keys.delete('l');
-      if (e.key === 'ArrowRight' || e.key === 'd') keys.delete('r');
-    });
-    RC.input._readKeys = () => (keys.has('r') ? 1 : 0) - (keys.has('l') ? 1 : 0);
-  };
+  // Measuring a hidden element gives back a rectangle of zeros, so refuse to
+  // record one - otherwise the pad is dead until the next time this runs.
+  function layoutPad() {
+    const r = I._el.pad.getBoundingClientRect();
+    if (r.width <= 0) return false;
+    I._cx = r.left + r.width / 2;
+    I._cy = r.top + r.height / 2;
+    I._r = r.width / 2;
+    return true;
+  }
+  RC.input.layout = layoutPad;
 
-  /* ---------- Called once per frame by the game loop ---------- */
+  // Which arms is this finger on? Worked out from the direction it sits in
+  // relative to the middle, rather than from which arm it is strictly inside.
+  // That is far more forgiving with a thumb you cannot see past, and it makes
+  // diagonals - turning while braking - fall out for free.
+  function readPad(x, y) {
+    if (!(I._r > 0) && !layoutPad()) return;
+    const dx = x - I._cx, dy = y - I._cy;
+    const dead = I._r * 0.22;
 
-  RC.input.update = function (dt) {
-    let target = 0;
+    const h = { l: false, r: false, u: false, d: false };
+    if (Math.abs(dx) > dead) (dx < 0 ? h.l = true : h.r = true);
+    if (Math.abs(dy) > dead) (dy < 0 ? h.u = true : h.d = true);
 
-    if (RC.input.mode === 'tilt' && RC.input.tiltAvailable) {
-      // How far from "neutral" are we, in degrees?
-      let deg = RC.input._rawTilt - RC.input._neutral;
+    // A press that is mostly horizontal shouldn't also count as vertical.
+    if (h.d && Math.abs(dx) > Math.abs(dy) * 2.2) h.d = false;
+    if ((h.l || h.r) && Math.abs(dy) > Math.abs(dx) * 2.2) { h.l = false; h.r = false; }
 
-      // Ignore tiny wobbles so a steady hand goes perfectly straight.
-      const dz = RC.input.deadzone;
-      deg = deg > dz ? deg - dz : deg < -dz ? deg + dz : 0;
+    I._held = h;
+    applyHeld();
+  }
 
-      // 22 degrees of tilt = full lock at sensitivity 1.0.
-      const fullLock = 22 / RC.input.sensitivity;
-      target = RC.clamp(deg / fullLock, -1, 1);
-    } else {
-      target = RC.input._touchSteer;
+  function applyHeld() {
+    const h = I._held;
+    I.steer = (h.r ? 1 : 0) - (h.l ? 1 : 0);
+    I.brake = h.d;
+    const e = I._el;
+    press(e.padL, h.l); press(e.padR, h.r); press(e.padD, h.d); press(e.padU, h.u);
+  }
+
+  function releasePad() {
+    I._pad = null;
+    I._held = { l: false, r: false, u: false, d: false };
+    applyHeld();
+  }
+
+  /* ---------- Touch routing ---------- */
+
+  // NB: the pressed class must not be one of the arm names. It used to be
+  // 'down', which collided with the down arm's own class - the first reset
+  // stripped it, the arm lost its place in the grid, and the cross came out
+  // shaped wrong.
+  function press(el, on) { if (el) el.classList.toggle('pressed', on); }
+
+  function zoneOf(t) {
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    if (el) {
+      if (el.closest('#btnFire')) return 'fire';
+      if (el.closest('#btnTurbo')) return 'turbo';
+      if (el.closest('.screen') || el.closest('#btnPause')) return 'ui';
     }
+    // A generous catchment around the cross, so you don't have to look at it.
+    const dx = t.clientX - I._cx, dy = t.clientY - I._cy;
+    if (Math.hypot(dx, dy) < I._r * 2.1) return 'pad';
+    return 'none';
+  }
 
-    const k = RC.input._readKeys ? RC.input._readKeys() : 0;
-    if (k !== 0) target = k;
+  function onStart(e) {
+    let used = false;
+    for (const t of e.changedTouches) {
+      const z = zoneOf(t);
+      if (z === 'ui' || z === 'none') continue;
+      used = true;
+      if (z === 'fire') { I._fireTouch = t.identifier; I.firePressed = true; press(I._el.fire, true); }
+      else if (z === 'turbo') { I._turboTouch = t.identifier; I.turbo = true; press(I._el.turbo, true); }
+      else if (I._pad === null) { I._pad = t.identifier; readPad(t.clientX, t.clientY); }
+    }
+    if (used) e.preventDefault();
+  }
 
-    if (RC.input.invert) target = -target;
+  function onMove(e) {
+    for (const t of e.changedTouches) {
+      if (t.identifier === I._pad) { readPad(t.clientX, t.clientY); e.preventDefault(); }
+    }
+  }
 
-    // Smooth the raw reading a little. Phone gyros are noisy, and this
-    // stops the car from twitching while you hold it still.
-    RC.input._smoothed = RC.damp(RC.input._smoothed, target, 18, dt);
-    RC.input.steer = RC.input._smoothed;
+  function onEnd(e) {
+    for (const t of e.changedTouches) {
+      if (t.identifier === I._pad) releasePad();
+      if (t.identifier === I._fireTouch) { I._fireTouch = null; press(I._el.fire, false); }
+      if (t.identifier === I._turboTouch) { I._turboTouch = null; I.turbo = false; press(I._el.turbo, false); }
+    }
+  }
+
+  /* ---------- Per frame ---------- */
+
+  RC.input.update = function () {
+    if (I._keys.size) {
+      I.steer = (I._keys.has('r') ? 1 : 0) - (I._keys.has('l') ? 1 : 0);
+      I.brake = I._keys.has('d2');
+    }
   };
 
   RC.input.consumeFire = function () {
-    const f = RC.input.firePressed;
-    RC.input.firePressed = false;
+    const f = I.firePressed;
+    I.firePressed = false;
     return f;
   };
 
   RC.input.reset = function () {
-    RC.input._touchSteer = 0;
-    RC.input._smoothed = 0;
-    RC.input.steer = 0;
-    RC.input.firePressed = false;
+    releasePad();
+    I.turbo = false;
+    I.firePressed = false;
+    I._turboTouch = I._fireTouch = null;
+    I._keys.clear();
+    press(I._el.turbo, false);
+    press(I._el.fire, false);
   };
 })();

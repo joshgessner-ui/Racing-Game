@@ -6,7 +6,7 @@
      and stops a double-tap from zooming the page mid-corner. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#12121a">
-<meta name="description" content="Turbo Circuit — a tilt-steered top-down racer for phone and tablet.">
+<meta name="description" content="Turbo Circuit — a top-down racer for phone and tablet.">
 
 <!-- These two let you add the game to your home screen and play it
      fullscreen, with no browser address bar. -->
@@ -32,13 +32,20 @@
       <div id="place">4th</div>
       <div id="lap">LAP 1/3</div>
       <div id="trackName"></div>
+      <div id="speedBar"><div id="speedFill"></div></div>
     </div>
   </div>
 
-  <div class="hudBottom">
-    <div id="itemSlot" aria-label="Your item"></div>
-    <div id="speedBar"><div id="speedFill"></div></div>
+  <!-- Left thumb on the cross, right thumb on the buttons. -->
+  <div id="pad" aria-label="Steering">
+    <div id="padU" class="arm up">▲</div>
+    <div id="padL" class="arm left">◀</div>
+    <div id="padC"></div>
+    <div id="padR" class="arm right">▶</div>
+    <div id="padD" class="arm down">BRAKE</div>
   </div>
+  <button id="btnTurbo" aria-label="Turbo"><span id="turboFill"></span><b>TURBO</b></button>
+  <button id="btnFire" aria-label="Fire item"><span id="fireIcon">FIRE</span></button>
 
   <div id="countdown"></div>
   <div id="toast"></div>
@@ -48,7 +55,7 @@
 <div class="screen on" id="menu">
   <div class="panel">
     <h1>TURBO<span>CIRCUIT</span></h1>
-    <p class="tag">Tilt to steer · Tap to fire</p>
+    <p class="tag">Left thumb turns · Right thumb boosts and fires</p>
     <button class="primary" id="btnStart">RACE</button>
     <div class="stats"><span id="menuPoints">0 pts</span></div>
     <div class="ups" id="menuUpgrades"></div>
@@ -74,16 +81,23 @@
   <div class="panel wide">
     <h2>How to play</h2>
     <div class="howto">
-      <p><b>Steering.</b> Tilt your phone or tablet left and right. Your car
-      accelerates on its own — you only ever steer.</p>
-      <p><b>Firing.</b> Tap anywhere on the screen to use whatever is in your
-      item slot, bottom left.</p>
+      <p><b>Steering.</b> Left and right on the cross turn your car, for as
+      long as you hold them. Let go and it holds the line it's on. It's a
+      steering wheel, not a compass — you're turning the car, not pointing it.</p>
+      <p><b>BRAKE</b> is the bottom of the cross. Your car speeds up on its
+      own, so braking is your only way to slow down — and it also lets you
+      turn about a quarter quicker, which is how you get round the tight stuff.</p>
+      <p><b>TURBO</b> is a burst of speed from a meter that refills when you
+      aren't using it. About two seconds of boost when full. Everyone on the
+      grid has one.</p>
+      <p><b>FIRE</b> uses whatever item you're carrying. The button shows what
+      you've got.</p>
       <p><b>🚀 Missile</b> flies forward and spins out whoever it hits.<br>
       <b>🛢️ Oil</b> drops behind you for whoever is chasing.<br>
-      <b>⚡ Turbo</b> is an instant burst of speed.</p>
+      <b>⚡ Turbo pickup</b> instantly refills your turbo meter.</p>
       <p><b>Yellow squares</b> are upgrades — engine, tyres and roll cage. You
-      keep them for the whole championship, so grabbing them early pays off
-      for the rest of the season.</p>
+      keep them for the whole championship, even on races you don't win, so
+      they're always worth the detour off the racing line.</p>
       <p><b>Glowing arrows</b> on the tarmac are speed strips. Free speed if
       you can hit them.</p>
       <p><b>Stay on the tarmac.</b> The dirt is slow.</p>
@@ -98,22 +112,20 @@
   <div class="panel wide">
     <h2>Controls</h2>
 
-    <div class="seg">
-      <button data-mode="tilt">Tilt</button>
-      <button data-mode="touch">Touch</button>
-    </div>
-    <p class="note" id="tiltStatus"></p>
-
-    <button id="btnCalibrate">Centre steering</button>
-    <p class="hint">Hold your device however you like to play, then tap this.
-      That position becomes “straight ahead”.</p>
+    <p class="note">Left and right on the cross turn the car for as long as
+      you hold them. <b>BRAKE</b> is the bottom of the cross. Your car speeds
+      up on its own.</p>
 
     <label class="field">
-      <span>Sensitivity <b id="sensVal">1.0×</b></span>
-      <input type="range" id="sens" min="0.4" max="2.2" step="0.1" value="1">
+      <span>Steering speed <b id="steerVal">1.0×</b></span>
+      <input type="range" id="steerSpeed" min="0.7" max="1.5" step="0.05" value="1">
     </label>
+    <p class="hint">How quickly the car turns while you hold left or right.
+      Turn it up if the steering feels slow, down if it feels twitchy.</p>
 
-    <label class="check"><input type="checkbox" id="invert"> Reverse steering</label>
+    <label class="check"><input type="checkbox" id="shake" checked> Screen shake</label>
+    <p class="hint">Turn this off if explosions and bumps make you queasy.</p>
+
     <label class="check"><input type="checkbox" id="sound" checked> Sound</label>
 
     <button class="danger" id="btnReset">Reset progress</button>
@@ -126,7 +138,6 @@
   <div class="panel">
     <h2>Paused</h2>
     <button class="primary" id="btnResume">Resume</button>
-    <button id="btnPauseCalib">Centre steering</button>
     <button id="btnPauseQuit">Quit race</button>
   </div>
 </div>
