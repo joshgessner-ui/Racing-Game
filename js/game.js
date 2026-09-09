@@ -29,7 +29,7 @@
       points: 0,
       upgrades: { engine: 0, tires: 0, armor: 0 },
       best: {},
-      settings: { steerSpeed: 1.0, shake: true, sound: true },
+      settings: { steerSpeed: 1.0, camera: 'upright', shake: true, sound: true },
       championshipDone: false,
     };
   }
@@ -38,6 +38,10 @@
     const s = RC.loadSave();
     const base = defaultSave();
     if (!s) return base;
+    // An earlier version stored this as a true/false "keep upright" flag.
+    if (s.settings && typeof s.settings.upright === 'boolean' && !s.settings.camera) {
+      s.settings.camera = s.settings.upright ? 'upright' : 'locked';
+    }
     return Object.assign(base, s, {
       upgrades: Object.assign(base.upgrades, s.upgrades || {}),
       settings: Object.assign(base.settings, s.settings || {}),
@@ -439,9 +443,35 @@
 
   /* ---------- Control settings ---------- */
 
+  // Three camera behaviours. "Locked" never turns the view at all, which is
+  // the calmest but lets the car end up driving down the screen with the
+  // steering feeling backwards. The other two turn it only as much as it
+  // takes to keep the car roughly upright, at a strict speed limit.
+  const CAM_MODES = {
+    locked:  { keep: false },
+    gentle:  { keep: true, dead: 50 * Math.PI / 180, rate: 0.85 },
+    upright: { keep: true, dead: 30 * Math.PI / 180, rate: 1.1 },
+  };
+  const CAM_HINT = {
+    locked: 'The view never turns. Calmest, but driving down the screen makes '
+      + 'left and right feel swapped.',
+    gentle: 'Turns only when the car strays a long way from upright, and turns '
+      + 'slowly. A middle ground if Upright feels like too much movement.',
+    upright: 'Keeps the car roughly pointing up so the steering always reads '
+      + 'correctly, turning the view slowly and only when it has to.',
+  };
+
+  function applyCamera(mode) {
+    const m = CAM_MODES[mode] || CAM_MODES.upright;
+    RC.view.keepUpright = m.keep;
+    if (m.dead !== undefined) RC.view.uprightDead = m.dead;
+    if (m.rate !== undefined) RC.view.uprightMaxRate = m.rate;
+  }
+
   function applySettings() {
     const st = RC.game.save.settings;
     RC.playerTurnScale = st.steerSpeed;
+    applyCamera(st.camera);
     RC.view.shakeEnabled = st.shake;
     RC.audio.enabled = st.sound;
   }
@@ -450,6 +480,9 @@
     const st = RC.game.save.settings;
     $('steerSpeed').value = String(st.steerSpeed);
     $('steerVal').textContent = st.steerSpeed.toFixed(2) + '×';
+    document.querySelectorAll('[data-cam]').forEach(b =>
+      b.classList.toggle('sel', b.dataset.cam === st.camera));
+    $('camHint').textContent = CAM_HINT[st.camera] || '';
     $('shake').checked = st.shake;
     $('sound').checked = st.sound;
   }
@@ -513,6 +546,12 @@
       $('steerVal').textContent = v.toFixed(2) + '×';
       persist();
     });
+    document.querySelectorAll('[data-cam]').forEach(b => b.addEventListener('click', () => {
+      g.save.settings.camera = b.dataset.cam;
+      applyCamera(b.dataset.cam);
+      persist();
+      refreshControlUi();
+    }));
     $('shake').addEventListener('change', (e) => {
       g.save.settings.shake = e.target.checked;
       RC.view.shakeEnabled = e.target.checked;

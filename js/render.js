@@ -1,9 +1,9 @@
 /* ============================================================
    render.js — everything you see.
 
-   The camera never rotates. North on the track is always up on the screen,
-   and the view simply slides along to follow your car, exactly as the
-   original RC Pro-Am did.
+   The camera slides along to follow your car and, by default, stays put
+   rotationally - until the car would otherwise end up pointing down the
+   screen, at which point it turns just enough to keep it roughly upright.
 
    This matters more than it sounds. An earlier version turned the camera
    with the car so that you always pointed up the screen, which is the right
@@ -20,7 +20,14 @@
   RC.view = {
     canvas: null, ctx: null,
     w: 0, h: 0, dpr: 1,
-    camX: 0, camY: 0, camRot: 0, zoom: 1,
+      camX: 0, camY: 0, camRot: 0, zoom: 1,
+    // The camera only turns to stop the car going upside down. Limit is how
+    // far from upright the car may look before the camera steps in; release
+    // is how far back it brings it. Both in radians.
+    keepUpright: true,
+    uprightDead: 30 * Math.PI / 180,     // camera ignores anything this small
+    uprightMaxRate: 1.1,                 // rad/s - the comfort speed limit
+    uprightLimit: 135 * Math.PI / 180,   // hard backstop: never past this
     shakeX: 0, shakeY: 0, shake: 0, shakeEnabled: true,
     _visible: null,
   };
@@ -70,6 +77,57 @@
 
   /* ---------- Camera ---------- */
 
+  /* ---------- Keeping the car upright without spinning the world ----------
+
+     A camera locked north-up never makes anyone ill, but on a closed circuit
+     you spend a quarter of every lap driving down the screen, where pressing
+     right sends you left and the controls feel backwards. (The original
+     RC Pro-Am dodged this: its tracks scrolled upward, so you always drove
+     roughly up the screen.)
+
+     So: leave the camera alone while the car is anywhere near upright, and
+     only turn it when the car would otherwise go past upside down. On
+     straights and gentle bends it doesn't move at all. The correction has a
+     dead zone, a separate release angle so it can't chatter at the boundary,
+     and a speed limit so it eases round rather than snapping.
+     ------------------------------------------------------------------- */
+
+  function updateCameraRotation(v, car, dt) {
+    if (!v.keepUpright) {
+      // Unwind smoothly back to north-up rather than snapping.
+      v.camRot += RC.angleDelta(v.camRot, 0) * (1 - Math.exp(-5 * dt));
+      if (Math.abs(v.camRot) < 0.002) v.camRot = 0;
+      return;
+    }
+
+    // How far from straight-up does the car LOOK right now? The world is drawn
+    // rotated by camRot, so what you see is the car's heading plus that.
+    const off = RC.wrapAngle(car.heading + v.camRot + Math.PI / 2);
+    const away = Math.abs(off);
+
+    // The car's own rate of turn, so the camera can match it when it has to.
+    const hr = v._lastHeading === undefined ? 0
+      : Math.abs(RC.angleDelta(v._lastHeading, car.heading)) / Math.max(dt, 1e-4);
+    v._lastHeading = car.heading;
+
+    // Inside the dead zone the camera does not move at all. This is what keeps
+    // straights and gentle bends completely still.
+    if (away <= v.uprightDead) return;
+
+    // Outside it, ease towards upright - gently, and faster the further out we
+    // are. The cap is what separates this from the old camera, which simply
+    // matched the car and swung the world round at every corner.
+    const excess = away - v.uprightDead;
+    let rate = Math.min(v.uprightMaxRate, 0.5 + 2.0 * excess);
+
+    // A hard backstop: past the limit, out-turn the car so it can never carry
+    // on round to upside down.
+    if (away > v.uprightLimit) rate = Math.max(rate, hr + 2.0);
+
+    const step = Math.min(excess, rate * dt);
+    v.camRot = RC.wrapAngle(v.camRot - Math.sign(off) * step);
+  }
+
   RC.updateCamera = function (race, dt) {
     const v = RC.view;
     const car = race.playerCar;
@@ -84,8 +142,7 @@
     v.camX = RC.damp(v.camX, tx, 6.5, dt);
     v.camY = RC.damp(v.camY, ty, 6.5, dt);
 
-    // Deliberately never rotated. See the note at the top of this file.
-    v.camRot = 0;
+    updateCameraRotation(v, car, dt);
 
     if (v.shake > 0 && RC.view.shakeEnabled) {
       v.shake = Math.max(0, v.shake - dt * 26);
@@ -97,6 +154,7 @@
   function applyWorldTransform(ctx, v) {
     ctx.setTransform(v.dpr, 0, 0, v.dpr, 0, 0);
     ctx.translate(v.w / 2 + v.shakeX, v.h / 2 + v.shakeY);
+    ctx.rotate(v.camRot);
     ctx.scale(v.zoom, v.zoom);
     ctx.translate(-v.camX, -v.camY);
   }
@@ -338,8 +396,10 @@
       ctx.fillStyle = 'rgba(0,0,0,0.28)';
       ctx.beginPath(); ctx.ellipse(0, 12 - bob, 22, 10, 0, 0, RC.TAU); ctx.fill();
 
-      // No un-rotating needed: the camera never turns, so an icon drawn
-      // upright stays upright.
+      // The camera can turn, so un-rotate the icon to keep the "?" and the
+      // upgrade letters the right way up whatever the view is doing.
+      ctx.rotate(-v.camRot);
+
       if (it.kind === 'crate') {
         const s = 19;
         ctx.fillStyle = '#f6f2e8';
