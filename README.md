@@ -57,8 +57,9 @@ arrow keys, fire with the spacebar.
 - There's dirt either side of the tarmac and a barrier beyond it. The dirt is
   slow, so cutting a corner never pays.
 
-Five circuits, getting harder. The first you can take almost flat out; the last
-has a hairpin you genuinely have to brake for.
+Five circuits, getting harder. Laps run about 21–26 seconds, so a three-lap
+race is a little over a minute. The first circuit you can take almost flat
+out; the last has a hairpin you genuinely have to brake for.
 
 ---
 
@@ -118,7 +119,7 @@ change a number, refresh the page.
 | `js/tracks.js` | **The five circuits.** The most fun file to experiment with. |
 | `js/car.js` | How a car moves, and how the computer drivers think. |
 | `js/items.js` | Crates, missiles, oil, turbo, upgrades. |
-| `js/render.js` | Everything you see. |
+| `js/render.js` | Everything you see — track, cars, scenery, skid marks. |
 | `js/game.js` | The game loop, the championship, and the menus. |
 
 ### Things worth trying first
@@ -129,7 +130,20 @@ change a number, refresh the page.
 - **`js/car.js`, the `BASE` block at the top** — `maxSpeed`, `turnRate`,
   `accel`. This is the feel of the game in five numbers. `turnRate` is the one
   that decides how sharp the steering feels.
-- **`js/tracks.js`, the `theme` on each track** — the colours.
+- **`js/tracks.js`, the `theme` on each track** — the colours, and which set
+  of roadside scenery it uses (`palm`, `harbour`, `city`, `canyon`, `forest`).
+- **`js/track.js`, `buildScenery`** — how densely the trees, rocks and
+  buildings are scattered.
+
+### A note on performance
+
+The game holds 60 frames a second on a phone, a small phone and a tablet. The
+thing most likely to break that is anything drawn across the *whole screen*
+every frame, not the number of objects: shading the screen edges on the canvas
+cost a tablet nine frames a second on its own — more than the scenery, kerbs
+and skid marks put together. It's a static CSS layer now (`#vignette`), which
+the browser composites once on the GPU. If you add an effect and the frame
+rate drops, suspect a full-screen fill before you suspect object count.
 
 A note on the file structure: each file wraps its contents in
 `(function () { ... })()`. That gives it a private scope. Plain `<script>` tags

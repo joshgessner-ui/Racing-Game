@@ -119,6 +119,7 @@
       laps: def.laps || 3,
       theme: def.theme,
       zips: [],   // speed strips baked into the tarmac
+      scenery: [],// trees, rocks, buildings - filled in by buildScenery
       items: [],  // crates and upgrades, filled in by items.js
     };
 
@@ -183,5 +184,57 @@
     track.progress = function (index) { return index / count; };
 
     return track;
+  };
+
+  /* ============================================================
+     Roadside scenery.
+
+     Props are placed once when a race loads, not every frame: a seeded
+     random number generator means a circuit looks the same every time you
+     play it, and the positions are just data the renderer walks through.
+
+     Everything is checked against the whole centreline before being kept,
+     because a wiggly circuit can bring the outside of one corner close to
+     the inside of another - without the check you get trees in the road.
+     ============================================================ */
+
+  const SCENERY_SETS = {
+    palm:    ['palm', 'palm', 'bush', 'rock'],
+    harbour: ['container', 'container', 'bollard', 'crate'],
+    city:    ['tower', 'tower', 'block', 'sign'],
+    canyon:  ['spire', 'cactus', 'boulder', 'boulder'],
+    forest:  ['pine', 'pine', 'pine', 'boulder'],
+  };
+
+  RC.buildScenery = function (track, rng) {
+    const kinds = SCENERY_SETS[track.theme.scenery] || SCENERY_SETS.forest;
+    const props = [];
+    const clear = track.halfWidth + (RC.RUNOFF || 62);
+
+    // Roughly one prop every 110 units of track, on each side.
+    const step = Math.max(4, Math.round(95 / track.spacing));
+
+    for (let i = 0; i < track.count; i += step) {
+      for (const side of [-1, 1]) {
+        if (rng() < 0.14) continue;                       // leave gaps
+        const out = clear + 45 + rng() * 420;
+        const jitter = Math.floor((rng() - 0.5) * step);
+        const p = track.pointAt(i + jitter, side * out);
+
+        // Never put anything on or beside the racing surface.
+        const near = track.locate(p[0], p[1], null);
+        if (Math.abs(near.offset) < clear + 26 || near.dist < clear + 26) continue;
+
+        props.push({
+          x: p[0], y: p[1],
+          kind: kinds[Math.floor(rng() * kinds.length) % kinds.length],
+          size: 1.05 + rng() * 0.95,
+          rot: rng() * RC.TAU,
+          tone: rng(),
+        });
+      }
+    }
+    track.scenery = props;
+    return props;
   };
 })();

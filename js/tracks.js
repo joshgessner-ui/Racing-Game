@@ -27,6 +27,7 @@
   const RC = window.RC;
 
   function ring(opts) {
+    // Longer circuits need more control points to stay smooth.
     const n = opts.n || 30;
     const pts = [];
     for (let i = 0; i < n; i++) {
@@ -48,12 +49,17 @@
       halfWidth: 165,
       laps: 3,
       points: ring({
-        base: 1038, sx: 1.24, sy: 1.0,
-        waves: [{ k: 2, amp: 317, phase: 0 }, { k: 3, amp: 174, phase: 0.6 }],
+        base: 1547, sx: 1.24, sy: 1.0, n: 34,
+        waves: [
+          { k: 2, amp: 468, phase: 0 },
+          { k: 3, amp: 257, phase: 0.6 },
+          { k: 5, amp: 103, phase: 2.1 },
+        ],
       }),
       theme: {
         ground: '#c08348', groundAlt: '#b5793f', tarmac: '#3c3c46',
         accent: '#ff9d4d', sky: '#ffb36b', crowd: '#e8d6b8',
+        scenery: 'palm',
       },
     },
     {
@@ -62,26 +68,36 @@
       halfWidth: 152,
       laps: 3,
       points: ring({
-        base: 1165, sx: 1.16, sy: 0.95,
-        waves: [{ k: 3, amp: 286, phase: 0.4 }, { k: 1, amp: 172, phase: 1.1 }],
+        base: 1707, sx: 1.16, sy: 0.95, n: 34,
+        waves: [
+          { k: 3, amp: 480, phase: 0.4 },
+          { k: 1, amp: 289, phase: 1.1 },
+          { k: 6, amp: 124, phase: 1.7 },
+        ],
       }),
       theme: {
         ground: '#1d6a78', groundAlt: '#195c68', tarmac: '#39434d',
         accent: '#4fd6e8', sky: '#7fe3ef', crowd: '#cfe9ee',
+        scenery: 'harbour',
       },
     },
     {
       name: 'Neon District',
-      subtitle: 'Four corners that all arrive at once.',
+      subtitle: 'Corners that all seem to arrive at once.',
       halfWidth: 136,
       laps: 3,
       points: ring({
-        base: 1116, sx: 1.2, sy: 1.0,
-        waves: [{ k: 4, amp: 224, phase: 0.2 }, { k: 2, amp: 175, phase: 1.9 }],
+        base: 1810, sx: 1.2, sy: 1.0, n: 36,
+        waves: [
+          { k: 4, amp: 296, phase: 0.2 },
+          { k: 2, amp: 231, phase: 1.9 },
+          { k: 7, amp: 87, phase: 0.9 },
+        ],
       }),
       theme: {
         ground: '#241b36', groundAlt: '#1e1730', tarmac: '#2f2c40',
         accent: '#ff5ecb', sky: '#6b3fa0', crowd: '#b98fe0',
+        scenery: 'city',
       },
     },
     {
@@ -90,16 +106,18 @@
       halfWidth: 128,
       laps: 3,
       points: ring({
-        base: 1217, sx: 1.26, sy: 0.9,
+        base: 1880, sx: 1.26, sy: 0.9, n: 38,
         waves: [
-          { k: 5, amp: 142, phase: 0.9 },
-          { k: 3, amp: 115, phase: 0.3 },
-          { k: 2, amp: 74, phase: 2.2 },
+          { k: 5, amp: 255, phase: 0.9 },
+          { k: 3, amp: 207, phase: 0.3 },
+          { k: 2, amp: 133, phase: 2.2 },
+          { k: 8, amp: 79, phase: 1.3 },
         ],
       }),
       theme: {
         ground: '#a2472f', groundAlt: '#8f3d28', tarmac: '#464039',
         accent: '#ffd451', sky: '#e78a5c', crowd: '#f0c9a5',
+        scenery: 'canyon',
       },
     },
     {
@@ -108,16 +126,18 @@
       halfWidth: 120,
       laps: 3,
       points: ring({
-        base: 1219, sx: 1.3, sy: 0.96,
+        base: 1950, sx: 1.3, sy: 0.96, n: 40,
         waves: [
-          { k: 6, amp: 119, phase: 0.5 },
-          { k: 4, amp: 110, phase: 2.4 },
-          { k: 2, amp: 82, phase: 0.8 },
+          { k: 6, amp: 195, phase: 0.5 },
+          { k: 4, amp: 180, phase: 2.4 },
+          { k: 2, amp: 134, phase: 0.8 },
+          { k: 9, amp: 62, phase: 2.0 },
         ],
       }),
       theme: {
         ground: '#2b4739', groundAlt: '#243d31', tarmac: '#34383d',
         accent: '#9dff5e', sky: '#5f7f6a', crowd: '#c6dcc9',
+        scenery: 'forest',
       },
     },
   ];

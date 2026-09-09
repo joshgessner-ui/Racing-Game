@@ -59,6 +59,7 @@
     const track = RC.buildTrack(def);
     const rng = RC.makeRng(1000 + raceIndex * 977);
     RC.populateTrack(track, rng, raceIndex);
+    RC.buildScenery(track, rng);
 
     const race = {
       track,
@@ -242,6 +243,7 @@
     RC.resolveCarCollisions(race.cars);
     RC.updateItems(race, dt);
     RC.updateParticles(race, dt);
+    RC.updateSkids(race, dt);
     computePlaces(race);
 
     // Engine note follows the player's car.

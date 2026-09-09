@@ -176,7 +176,9 @@
     const viewR = (Math.hypot(v.w, v.h) / 2) / v.zoom + 200;
 
     drawGroundTexture(ctx, v, th, viewR);
+    drawScenery(ctx, race, track, th, viewR);
     drawRoad(ctx, race, track, th, viewR);
+    drawSkids(ctx, race, viewR);
     drawZips(ctx, race, track, th, viewR);
     drawSlicks(ctx, race, viewR);
     drawPickups(ctx, race, track, viewR);
@@ -184,7 +186,7 @@
     drawCars(ctx, race, viewR);
     drawMissiles(ctx, race);
 
-    // Back to plain screen coordinates for the minimap.
+    // Back to plain screen coordinates for the overlays.
     ctx.setTransform(v.dpr, 0, 0, v.dpr, 0, 0);
     drawMinimap(ctx, race);
   };
@@ -200,6 +202,7 @@
     const y0 = Math.floor((v.camY - viewR) / step) * step;
     const y1 = v.camY + viewR;
 
+    ctx.globalAlpha = 0.6;
     ctx.fillStyle = th.groundAlt;
     for (let x = x0; x < x1; x += step) {
       for (let y = y0; y < y1; y += step) {
@@ -216,6 +219,7 @@
         ctx.fill();
       }
     }
+    ctx.globalAlpha = 1;
   }
 
   /* ---------- Road ---------- */
@@ -245,6 +249,29 @@
     return runs;
   }
 
+  // Reused scratch buffers: one per colour, holding flat x1,y1,x2,y2 runs.
+  const KERB = [[], [], []];
+  const KERB_COLS = ['#ee4b4b', '#f2f2f2', '#cfcfda'];
+  const WALL = [[], []];
+  // Slate panels, deliberately NOT red-and-white: that pattern belongs to the
+  // kerb alone. Two candy-striped lines running in parallel made it genuinely
+  // hard to see where the tarmac ended.
+  const WALL_COLS = ['#4c4c59', '#3c3c47'];
+
+  function strokeBuckets(ctx, buckets, colours) {
+    for (let bi = 0; bi < buckets.length; bi++) {
+      const seg = buckets[bi];
+      if (!seg.length) continue;
+      ctx.strokeStyle = colours[bi];
+      ctx.beginPath();
+      for (let j = 0; j < seg.length; j += 4) {
+        ctx.moveTo(seg[j], seg[j + 1]);
+        ctx.lineTo(seg[j + 2], seg[j + 3]);
+      }
+      ctx.stroke();
+    }
+  }
+
   function stripPath(ctx, track, a, b) {
     const n = track.count;
     ctx.beginPath();
@@ -263,7 +290,9 @@
 
   function drawRoad(ctx, race, track, th, viewR) {
     const v = RC.view;
-    const runs = visibleRuns(track, v.camX, v.camY, viewR);
+    // Widen the cull a little so barriers and scenery just off-screen still
+    // draw, rather than popping in at the edge of the view.
+    const runs = visibleRuns(track, v.camX, v.camY, viewR + 120);
     const n = track.count;
 
     for (const [a, b] of runs) {
@@ -274,28 +303,28 @@
       ctx.fillStyle = th.tarmac;
       ctx.fill();
 
-      // Kerbs: red and white blocks, brighter through the corners.
-      ctx.lineWidth = 11;
-      ctx.lineCap = 'butt';
+      // Kerbs: red and white blocks through the corners, a plain painted line
+      // down the straights. The alternation is what makes a corner read as a
+      // corner from a distance.
+      //
+      // Segments are bucketed by colour and each colour drawn as ONE path.
+      // Stroking every segment separately was hundreds of draw calls a frame
+      // and cost a tablet about eight frames a second on its own.
+      for (const bucket of KERB) bucket.length = 0;
       for (let i = a; i < b; i++) {
         const k = ((i % n) + n) % n;
         const k2 = ((i + 1) % n + n) % n;
-        // Red-and-white kerbing through the corners, a plain painted line
-        // down the straights. The alternation is what makes a corner read as
-        // a corner from a distance.
         const sharp = track.curvature[k] > 0.0012;
-        const on = (Math.floor(i / 3) % 2) === 0;
-        const col = sharp ? (on ? '#ee4b4b' : '#f2f2f2') : '#cfcfda';
-        ctx.strokeStyle = col;
-        ctx.beginPath();
-        ctx.moveTo(track.left[k * 2], track.left[k * 2 + 1]);
-        ctx.lineTo(track.left[k2 * 2], track.left[k2 * 2 + 1]);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(track.right[k * 2], track.right[k * 2 + 1]);
-        ctx.lineTo(track.right[k2 * 2], track.right[k2 * 2 + 1]);
-        ctx.stroke();
+        const bi = sharp ? ((Math.floor(i / 3) % 2) === 0 ? 0 : 1) : 2;
+        const bucket = KERB[bi];
+        bucket.push(track.left[k * 2], track.left[k * 2 + 1],
+                    track.left[k2 * 2], track.left[k2 * 2 + 1],
+                    track.right[k * 2], track.right[k * 2 + 1],
+                    track.right[k2 * 2], track.right[k2 * 2 + 1]);
       }
+      ctx.lineWidth = 11;
+      ctx.lineCap = 'butt';
+      strokeBuckets(ctx, KERB, KERB_COLS);
 
       // Faint dashes down the middle
       ctx.strokeStyle = 'rgba(255,255,255,0.13)';
@@ -311,7 +340,46 @@
       ctx.setLineDash([]);
     }
 
+    drawBarriers(ctx, track, th, runs);
     drawStartLine(ctx, track);
+  }
+
+  // The wall beyond the dirt. It used to be invisible, which made hitting it a
+  // surprise - now you can see what you're about to graze.
+  function drawBarriers(ctx, track, th, runs) {
+    const n = track.count;
+    const out = track.halfWidth + (RC.RUNOFF || 62);
+    ctx.lineCap = 'butt';
+    ctx.lineWidth = 11;
+    for (const [a, b] of runs) {
+      for (const bucket of WALL) bucket.length = 0;
+      for (let i = a; i < b; i++) {
+        const k = ((i % n) + n) % n, k2 = ((i + 1) % n + n) % n;
+        const bucket = WALL[(Math.floor(i / 4) % 2) === 0 ? 0 : 1];
+        for (const side of [1, -1]) {
+          bucket.push(
+            track.pts[k][0] + track.normals[k * 2] * out * side,
+            track.pts[k][1] + track.normals[k * 2 + 1] * out * side,
+            track.pts[k2][0] + track.normals[k2 * 2] * out * side,
+            track.pts[k2][1] + track.normals[k2 * 2 + 1] * out * side);
+        }
+      }
+      strokeBuckets(ctx, WALL, WALL_COLS);
+
+      // A thin highlight along the top of the wall, so it reads as a solid
+      // object rather than a painted line.
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255,255,255,0.30)';
+      ctx.beginPath();
+      for (const bucket of WALL) {
+        for (let j = 0; j < bucket.length; j += 4) {
+          ctx.moveTo(bucket[j], bucket[j + 1]);
+          ctx.lineTo(bucket[j + 2], bucket[j + 3]);
+        }
+      }
+      ctx.stroke();
+      ctx.lineWidth = 11;
+    }
   }
 
   function drawStartLine(ctx, track) {
@@ -337,8 +405,233 @@
         ctx.closePath(); ctx.fill();
       }
     }
+    // A gantry across the line, so the start/finish reads at a glance.
+    const W2 = W + 26;
+    ctx.fillStyle = '#22222c';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(px + nx * W2 * side, py + ny * W2 * side, 11, 0, RC.TAU);
+      ctx.fill();
+    }
+    ctx.strokeStyle = '#2b2b36';
+    ctx.lineWidth = 13;
+    ctx.beginPath();
+    ctx.moveTo(px + nx * W2 + tx * 34, py + ny * W2 + ty * 34);
+    ctx.lineTo(px - nx * W2 + tx * 34, py - ny * W2 + ty * 34);
+    ctx.stroke();
+    ctx.strokeStyle = '#ff9d4d';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
     ctx.restore();
   }
+
+  /* ---------- Roadside scenery ----------
+
+     All drawn from directly above, like everything else, so it rotates with
+     the world without any special handling. Each prop is a handful of canvas
+     shapes plus a soft shadow, which is what sells the "toy models on a
+     table" look far more cheaply than any texture would.
+     ------------------------------------------------------------------- */
+
+  function shadow(ctx, r) {
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.beginPath(); ctx.ellipse(r * 0.22, r * 0.30, r, r * 0.86, 0, 0, RC.TAU); ctx.fill();
+  }
+  const shade = (hex, t) => {
+    const n = parseInt(hex.slice(1), 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    const m = (c) => Math.round(t < 0 ? c * (1 + t) : c + (255 - c) * t);
+    return 'rgb(' + m(r) + ',' + m(g) + ',' + m(b) + ')';
+  };
+
+  function drawScenery(ctx, race, track, th, viewR) {
+    const v = RC.view;
+    const r2 = (viewR + 200) * (viewR + 200);
+    for (const p of track.scenery) {
+      if (RC.dist2(v.camX, v.camY, p.x, p.y) > r2) continue;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.scale(p.size, p.size);
+      drawProp(ctx, p, th);
+      ctx.restore();
+    }
+  }
+
+  function drawProp(ctx, p, th) {
+    switch (p.kind) {
+      case 'palm': {
+        shadow(ctx, 26);
+        ctx.fillStyle = '#2f7d4a';
+        for (let i = 0; i < 7; i++) {           // fronds, seen from above
+          const a = (i / 7) * RC.TAU;
+          ctx.save(); ctx.rotate(a);
+          ctx.beginPath(); ctx.ellipse(16, 0, 15, 6, 0, 0, RC.TAU); ctx.fill();
+          ctx.restore();
+        }
+        ctx.fillStyle = '#6b4a2a';
+        ctx.beginPath(); ctx.arc(0, 0, 6, 0, RC.TAU); ctx.fill();
+        break;
+      }
+      case 'pine': {
+        shadow(ctx, 24);
+        const g = p.tone < 0.5 ? '#3d9159' : '#347c4c';
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(0, 0, 24, 0, RC.TAU); ctx.fill();
+        ctx.fillStyle = shade(g, 0.16);
+        ctx.beginPath(); ctx.arc(-3, -3, 15, 0, RC.TAU); ctx.fill();
+        ctx.fillStyle = shade(g, 0.34);
+        ctx.beginPath(); ctx.arc(-5, -5, 7, 0, RC.TAU); ctx.fill();
+        break;
+      }
+      case 'bush': {
+        shadow(ctx, 15);
+        ctx.fillStyle = '#3d8a55';
+        for (const [dx, dy, r] of [[-7, 0, 10], [7, 2, 9], [0, -6, 9]]) {
+          ctx.beginPath(); ctx.arc(dx, dy, r, 0, RC.TAU); ctx.fill();
+        }
+        break;
+      }
+      case 'cactus': {
+        shadow(ctx, 14);
+        ctx.fillStyle = '#4f8f4a';
+        rr(ctx, -7, -7, 14, 14, 6); ctx.fill();
+        rr(ctx, -22, -5, 16, 10, 5); ctx.fill();
+        rr(ctx, 6, -5, 16, 10, 5); ctx.fill();
+        break;
+      }
+      case 'rock': case 'boulder': {
+        const r = p.kind === 'rock' ? 13 : 20;
+        shadow(ctx, r);
+        const base = p.tone < 0.5 ? '#8a8478' : '#77706a';
+        ctx.fillStyle = base;
+        ctx.beginPath();
+        ctx.moveTo(-r, 2); ctx.lineTo(-r * 0.4, -r); ctx.lineTo(r * 0.6, -r * 0.7);
+        ctx.lineTo(r, r * 0.3); ctx.lineTo(0, r); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = shade(base, 0.20);
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.4, -r); ctx.lineTo(r * 0.6, -r * 0.7); ctx.lineTo(0, -r * 0.1);
+        ctx.closePath(); ctx.fill();
+        break;
+      }
+      case 'spire': {
+        shadow(ctx, 22);
+        ctx.fillStyle = '#a4573a';
+        ctx.beginPath(); ctx.arc(0, 0, 22, 0, RC.TAU); ctx.fill();
+        ctx.fillStyle = '#c76d47';
+        ctx.beginPath(); ctx.arc(-3, -3, 14, 0, RC.TAU); ctx.fill();
+        ctx.fillStyle = '#e08a5c';
+        ctx.beginPath(); ctx.arc(-5, -5, 6, 0, RC.TAU); ctx.fill();
+        break;
+      }
+      case 'container': {
+        shadow(ctx, 26);
+        const cols = ['#c0453e', '#2f7fa8', '#d69b2a', '#3f8a55'];
+        const c = cols[Math.floor(p.tone * cols.length) % cols.length];
+        ctx.fillStyle = c; rr(ctx, -30, -13, 60, 26, 3); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = shade(c, 0.18);
+        for (let i = -24; i < 26; i += 8) ctx.fillRect(i, -11, 3, 22);
+        break;
+      }
+      case 'crate': {
+        shadow(ctx, 14);
+        ctx.fillStyle = '#9c7440'; rr(ctx, -14, -14, 28, 28, 3); ctx.fill();
+        ctx.strokeStyle = '#6d4f2a'; ctx.lineWidth = 3; ctx.stroke();
+        break;
+      }
+      case 'bollard': {
+        shadow(ctx, 9);
+        ctx.fillStyle = '#4a5560';
+        ctx.beginPath(); ctx.arc(0, 0, 9, 0, RC.TAU); ctx.fill();
+        ctx.fillStyle = '#9aa6b2';
+        ctx.beginPath(); ctx.arc(-1.5, -1.5, 5, 0, RC.TAU); ctx.fill();
+        break;
+      }
+      case 'tower': case 'block': {
+        const w = p.kind === 'tower' ? 34 : 52, h = p.kind === 'tower' ? 34 : 30;
+        shadow(ctx, Math.max(w, h) * 0.6);
+        ctx.fillStyle = '#2b2540'; rr(ctx, -w / 2, -h / 2, w, h, 4); ctx.fill();
+        ctx.fillStyle = '#3a3358'; rr(ctx, -w / 2 + 5, -h / 2 + 5, w - 10, h - 10, 3); ctx.fill();
+        // Lit windows along the roof edge.
+        ctx.fillStyle = p.tone < 0.5 ? 'rgba(255,94,203,0.85)' : 'rgba(120,220,255,0.85)';
+        for (let i = -w / 2 + 7; i < w / 2 - 6; i += 9) ctx.fillRect(i, -h / 2 + 1.5, 5, 3);
+        break;
+      }
+      case 'sign': {
+        shadow(ctx, 13);
+        ctx.fillStyle = '#1d1830'; rr(ctx, -16, -7, 32, 14, 3); ctx.fill();
+        ctx.fillStyle = p.tone < 0.5 ? '#ff5ecb' : '#5ee8ff';
+        rr(ctx, -13, -4, 26, 8, 2); ctx.fill();
+        break;
+      }
+    }
+  }
+
+  /* ---------- Rubber left on the road ----------
+
+     Each car keeps a short trail of where it was while sliding or braking
+     hard. Drawing one stroked path per car is far cheaper than hundreds of
+     separate marks, and it reads as continuous rubber rather than dashes.
+     ------------------------------------------------------------------- */
+
+  const SKID_LIFE = 3.2;
+
+  RC.updateSkids = function (race, dt) {
+    for (const car of race.cars) {
+      if (!car.skid) { car.skid = []; car._skidT = 0; }
+      const fast = car.speed > 150;
+      const sliding = fast && !car.offRoad &&
+        (car.braking || Math.abs(car.steerInput) > 0.75 || car.spin > 0);
+
+      car._skidT -= dt;
+      if (sliding && car._skidT <= 0) {
+        car._skidT = 0.045;
+        const c = Math.cos(car.heading), s = Math.sin(car.heading);
+        car.skid.push({
+          x: car.x - c * 17, y: car.y - s * 17, nx: -s, ny: c, t: race.time,
+        });
+      } else if (!sliding && car.skid.length && car.skid[car.skid.length - 1]) {
+        car.skid.push(null);   // a gap, so the next mark starts a new streak
+        car._skidT = 0;
+      }
+      while (car.skid.length && (!car.skid[0] || race.time - car.skid[0].t > SKID_LIFE)) {
+        car.skid.shift();
+      }
+    }
+  };
+
+  function drawSkids(ctx, race, viewR) {
+    const v = RC.view;
+    ctx.strokeStyle = 'rgba(20,18,24,0.30)';
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const car of race.cars) {
+      if (!car.skid || car.skid.length < 2) continue;
+      for (const w of [-1, 1]) {          // one streak per rear wheel
+        ctx.beginPath();
+        let drawing = false;
+        for (const m of car.skid) {
+          if (!m) { drawing = false; continue; }
+          if (RC.dist2(v.camX, v.camY, m.x, m.y) > viewR * viewR) { drawing = false; continue; }
+          const x = m.x + m.nx * 15 * w, y = m.y + m.ny * 15 * w;
+          if (!drawing) { ctx.moveTo(x, y); drawing = true; } else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+    }
+  }
+
+  /* ---------- Vignette ----------
+     Deliberately NOT drawn here. Shading the screen edges on the canvas meant
+     alpha-blending every pixel every frame, which cost a tablet nine frames a
+     second all by itself - more than the scenery, the kerbs and the skid
+     marks put together. It is a static CSS layer over the canvas instead, so
+     the browser composites it once on the GPU and the game loop never touches
+     it. See #vignette in style.css.
+     ------------------------------------------------------------------- */
 
   /* ---------- Track furniture ---------- */
 
@@ -489,6 +782,12 @@
     rr(ctx, -L * 0.30, -W * 0.62, L * 0.72, W * 1.24, 5); ctx.fill();
     ctx.fillStyle = 'rgba(30,30,45,0.75)';
     rr(ctx, -L * 0.10, -W * 0.44, L * 0.42, W * 0.88, 4); ctx.fill();
+
+    // A driver in the seat, and brake lights across the tail.
+    ctx.fillStyle = car.color.trim;
+    ctx.beginPath(); ctx.arc(-L * 0.02, 0, W * 0.30, 0, RC.TAU); ctx.fill();
+    ctx.fillStyle = car.braking ? '#ff5a5a' : 'rgba(150,40,40,0.7)';
+    rr(ctx, -L + 2, -W * 0.62, 3.5, W * 1.24, 1.5); ctx.fill();
 
     // Rear wing
     ctx.fillStyle = '#22222b';

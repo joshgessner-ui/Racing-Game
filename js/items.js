@@ -27,10 +27,12 @@
 
     const n = track.count;
 
-    // Crates in rows of 3 so there's a choice of line. Spaced so you meet a
-    // row roughly every four seconds - dense enough that the race stays
-    // lively, sparse enough that holding an item still feels like something.
-    const gap = Math.max(60, Math.floor(n / 5));
+    // Crates in rows of 3 so there's a choice of line, spaced by DISTANCE
+    // rather than by a fraction of the lap - otherwise a long circuit gets
+    // the same handful of rows as a short one and feels empty between them.
+    // Roughly one row every four seconds at racing speed.
+    const ROW_SPACING = 2300;
+    const gap = Math.max(50, Math.round(ROW_SPACING / track.spacing));
     for (let i = Math.floor(gap * 0.7); i < n - 20; i += gap) {
       const spread = track.halfWidth * 0.55;
       for (let k = -1; k <= 1; k++) {
@@ -61,9 +63,12 @@
       }
     }
 
-    // Two or three upgrades per race, always slightly off the ideal line so
-    // taking one costs you a little time. That's the trade-off.
-    const upgradeCount = 2 + (raceIndex >= 2 ? 1 : 0);
+    // Upgrades sit slightly off the ideal line, so taking one costs a little
+    // time. Also scaled by distance so a long lap isn't a long walk between
+    // them, with a floor and a ceiling.
+    const upgradeCount = RC.clamp(
+      Math.round(track.length / 4600) + (raceIndex >= 2 ? 1 : 0), 2, 5
+    );
     for (let u = 0; u < upgradeCount; u++) {
       const i = Math.floor(((u + 0.55) / upgradeCount) * n);
       const bend = track.bendAhead(i, 30);

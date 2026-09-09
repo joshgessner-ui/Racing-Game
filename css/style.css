@@ -53,6 +53,16 @@ html, body {
 }
 #hud.on { display: block; }
 
+/* Darkens the screen edges to give the track some depth. Done here rather
+   than on the canvas so the browser composites it once instead of the game
+   re-blending every pixel of it sixty times a second. */
+#vignette {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 62% 55% at 50% 50%,
+    rgba(0,0,0,0) 0%, rgba(0,0,0,0.10) 55%, rgba(0,0,0,0.36) 100%);
+}
+
 .hudTop {
   position: absolute;
   top: calc(10px + var(--safe-top));
