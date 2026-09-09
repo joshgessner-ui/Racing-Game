@@ -71,17 +71,35 @@ Under **Controls** on the main menu:
 | The car turns too slowly | Turn **Steering speed** up |
 | The car is twitchy and hard to hold straight | Turn **Steering speed** down |
 | Bumps and explosions make you queasy | Turn **Screen shake** off |
+| The view moves more than you'd like | Set **Camera** to Gentle, or Locked |
+| Steering feels backwards heading "down" the screen | Set **Camera** to Upright |
 
-**On motion sickness.** The camera never rotates — north on the track is
-always up on the screen, and the view just slides along to follow you, the way
-the original RC Pro-Am worked. If anything still bothers you, turning screen
-shake off removes the last camera movement that isn't your own driving.
+**On motion sickness.** There are three camera settings under Controls:
 
-**One consequence of that fixed camera** worth knowing: when you're driving
-down the screen, pressing right turns the car right *from the car's point of
-view*, which looks like moving left on screen. That's how RC Pro-Am handled it
-too. The alternative is turning the camera with the car, which is what made
-you ill.
+| Setting | What it does | Car's worst angle from upright | View turns |
+|---|---|---|---|
+| **Locked** | Never turns at all | 180° — fully inverted | never |
+| **Gentle** | Turns only when you stray a long way | 89° | 64% of the time, capped at 49°/s |
+| **Upright** (default) | Keeps the car roughly pointing up | 68° | 62% of the time, capped at 63°/s |
+
+The camera originally turned with the car all the time, matching it exactly and
+swinging the world round at every corner — that's what caused the sickness. The
+two upright settings turn the view *only* when the car would otherwise end up
+pointing down the screen, and always at a strict speed limit, so a straight or
+a gentle bend produces no camera movement at all.
+
+**Why the camera has to turn at all.** With a locked camera, driving down the
+screen means pressing right sends you left — the steering reads backwards. The
+original RC Pro-Am avoided this because its tracks scrolled upward, so you
+always drove roughly up the screen. A closed circuit has no such luxury: you
+spend a quarter of every lap heading back the other way. Turning the view a
+little is the price of controls that always read correctly.
+
+If Upright still feels like too much movement, try **Gentle** before Locked.
+
+The numbers above come from sampling every frame across 25 seconds of driving.
+The relevant constants are `uprightDead` and `uprightMaxRate` near the top of
+`js/render.js`.
 
 ---
 
