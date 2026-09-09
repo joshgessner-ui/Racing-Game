@@ -28,6 +28,14 @@
   // BOOST_RECHARGE seconds of not using it to fill from empty. Every car has
   // one, including the computer drivers, so it speeds the whole race up
   // rather than handing the player a free advantage.
+  // Missiles are standard issue: a fresh five every lap, for everyone on the
+  // grid. They used to come out of crates, which meant whether you had one
+  // was luck rather than judgement.
+  const MISSILES_PER_LAP = 5;
+  RC.MISSILES_PER_LAP = MISSILES_PER_LAP;
+  const MAX_OIL = 3;
+  RC.MAX_OIL = MAX_OIL;
+
   const BOOST_SECONDS = 2.2;
   const BOOST_RECHARGE = 7.5;
   const BOOST_MULTIPLIER = 1.40;
@@ -63,7 +71,8 @@
       tires: opts.tires || 0,
       armor: opts.armor || 0,
 
-      item: null,          // 'missile' | 'oil' | 'turbo'
+      missiles: MISSILES_PER_LAP,  // refilled at the start of every lap
+    oil: 0,                      // slicks in reserve, picked up from crates
       spin: 0,             // seconds left spinning out
       spinDir: 1,
       boost: 0,            // seconds of boost from a speed strip or an item
@@ -244,6 +253,9 @@
     const nowP = car.loc / track.count;
     if (prevP > 0.75 && nowP < 0.25) {
       car.lap++;
+      // A fresh five missiles each lap, including the crossing that starts
+      // the race. They do not stack up if you did not use them.
+      car.missiles = MISSILES_PER_LAP;
       // lap 0 is the race actually starting, so there is no time to record yet.
       if (car.lap >= 1) car.lapTimes.push(race.time - car.lapStartTime);
       car.lapStartTime = race.time;
@@ -353,7 +365,8 @@
       // delay doesn't read as "slower driver", it reads as "car falls off the
       // track", and then the race is a procession instead of a fight.
       reaction: 0.05 + (1 - skill) * 0.06,
-      itemTimer: 1 + rng() * 2,
+      missileTimer: 1.5 + rng() * 3,   // seconds until it will shoot again
+      oilTimer: 2 + rng() * 4,
       steerMemory: 0,
       rubber: 1,
     };

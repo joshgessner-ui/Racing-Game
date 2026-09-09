@@ -129,6 +129,7 @@
     g.screen = 'race';
     g.paused = false;
     RC.input.reset();
+    lastMissiles = lastOil = lastLap = lastPlace = -1;
     updateHudStatic();
     showScreen(null);
     // Measure the stick only once the HUD is actually on screen - a hidden
@@ -216,10 +217,10 @@
 
     race.controlsLive = race.started && !race.over;
 
-    // --- Firing ---
-    if (RC.input.consumeFire() && race.controlsLive && race.playerCar) {
-      RC.fireItem(race.playerCar, race);
-    }
+    // --- Weapons ---
+    const p0 = race.playerCar;
+    if (RC.input.consumeFire() && race.controlsLive && p0) RC.fireMissile(p0, race);
+    if (RC.input.consumeOil() && race.controlsLive && p0) RC.dropOil(p0, race);
 
     // --- Cars ---
     for (const car of race.cars) {
@@ -327,8 +328,8 @@
     race.hudTopInset = parseInt(getComputedStyle(document.body).getPropertyValue('--safe-top')) || 0;
   }
 
-  const ITEM_ICON = { missile: '🚀', oil: '🛢️', turbo: '⚡' };
-  let lastItem = 'none';
+  let lastMissiles = -1;
+  let lastOil = -1;
   let lastLap = -1;
   let lastPlace = -1;
 
@@ -348,12 +349,16 @@
       $('lap').textContent = 'LAP ' + lap + '/' + race.track.laps;
     }
 
-    const it = car.item || 'none';
-    if (it !== lastItem) {
-      lastItem = it;
-      // The fire button IS the item slot - one thing to look at, not two.
-      $('fireIcon').textContent = car.item ? ITEM_ICON[car.item] : 'FIRE';
-      $('btnFire').classList.toggle('armed', !!car.item);
+    // Missile count on the fire button, slick count on the up arm.
+    if (car.missiles !== lastMissiles) {
+      lastMissiles = car.missiles;
+      $('fireIcon').textContent = car.missiles > 0 ? '🚀' + car.missiles : '🚀';
+      $('btnFire').classList.toggle('armed', car.missiles > 0);
+    }
+    if (car.oil !== lastOil) {
+      lastOil = car.oil;
+      $('padU').textContent = car.oil > 0 ? '🛢' + car.oil : '▲';
+      $('padU').classList.toggle('loaded', car.oil > 0);
     }
 
     const frac = RC.clamp(car.speed / RC.carMaxSpeed(car), 0, 1);

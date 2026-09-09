@@ -141,6 +141,8 @@ html, body {
   transition: background .07s ease, transform .07s ease;
 }
 #pad .arm.down { font-size: clamp(8px, 2.2vmin, 12px); letter-spacing: 0.5px; }
+/* The up arm shows how many oil slicks you're carrying. */
+#pad .arm.up.loaded { color: #fff; background: rgba(40,40,60,0.82); font-size: clamp(11px, 3vmin, 16px); }
 
 /* The four arms of the cross, and a blank hub in the middle. */
 .arm.up    { grid-area: 1 / 2 / 2 / 3; border-radius: 14px 14px 0 0; border-bottom: none; }

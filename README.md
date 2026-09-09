@@ -45,9 +45,12 @@ arrow keys, fire with the spacebar.
   Every car on the grid has one.
 - **FIRE** uses your item. The button shows what you're carrying.
 - Finish in the **top three** to unlock the next circuit.
-- **🚀 Missile** — fires forward, spins out whoever it hits.
-- **🛢️ Oil** — drops behind you for whoever is chasing.
-- **⚡ Turbo pickup** — instantly refills your turbo meter.
+- **🚀 FIRE** launches a missile — **five every lap**, standard issue for
+  everyone on the grid. They don't carry over, so use them. A hit spins the
+  other car out.
+- **🛢 UP on the cross** drops an oil slick behind you, for whoever is
+  chasing. You can carry up to three.
+- **Crates** hold oil slicks and turbo refills.
 - **Yellow squares** are upgrades: engine, tyres, roll cage. You keep them for
   the whole championship — including on races you don't win — so they're
   always worth the detour off the racing line. They're also the difficulty
