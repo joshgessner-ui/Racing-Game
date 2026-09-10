@@ -184,7 +184,6 @@
     drawPickups(ctx, race, track, viewR);
     drawParticles(ctx, race);
     drawCars(ctx, race, viewR);
-    drawMissiles(ctx, race);
 
     // Back to plain screen coordinates for the overlays.
     ctx.setTransform(v.dpr, 0, 0, v.dpr, 0, 0);
@@ -827,21 +826,6 @@
     if (car.offRoad && car.speed > 120 && Math.random() < 0.5) {
       RC.puff(race, car.x - Math.cos(car.heading) * 28, car.y - Math.sin(car.heading) * 28,
         race.track.theme.groundAlt, 0.4, 8);
-    }
-  }
-
-  function drawMissiles(ctx, race) {
-    for (const m of race.missiles) {
-      ctx.save();
-      ctx.translate(m.x, m.y);
-      ctx.rotate(m.heading);
-      ctx.fillStyle = '#ffe0a0';
-      ctx.beginPath();
-      ctx.moveTo(18, 0); ctx.lineTo(-10, -8); ctx.lineTo(-6, 0); ctx.lineTo(-10, 8);
-      ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#ff6b3f';
-      ctx.beginPath(); ctx.arc(-10, 0, 5.5, 0, RC.TAU); ctx.fill();
-      ctx.restore();
     }
   }
 

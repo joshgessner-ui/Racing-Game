@@ -28,11 +28,6 @@
   // BOOST_RECHARGE seconds of not using it to fill from empty. Every car has
   // one, including the computer drivers, so it speeds the whole race up
   // rather than handing the player a free advantage.
-  // Missiles are standard issue: a fresh five every lap, for everyone on the
-  // grid. They used to come out of crates, which meant whether you had one
-  // was luck rather than judgement.
-  const MISSILES_PER_LAP = 5;
-  RC.MISSILES_PER_LAP = MISSILES_PER_LAP;
   const MAX_OIL = 3;
   RC.MAX_OIL = MAX_OIL;
 
@@ -57,8 +52,8 @@
       heading: opts.heading,
       speed: 0,
 
-      // A short-lived push applied on top of normal driving: what a missile
-      // hit or a shunt from another car feels like.
+      // A short-lived push applied on top of normal driving: what a shunt
+      // from another car, or a spin, feels like.
       kickX: 0, kickY: 0,
 
       isPlayer: !!opts.isPlayer,
@@ -71,8 +66,7 @@
       tires: opts.tires || 0,
       armor: opts.armor || 0,
 
-      missiles: MISSILES_PER_LAP,  // refilled at the start of every lap
-    oil: 0,                      // slicks in reserve, picked up from crates
+      oil: 0,              // slicks in reserve, picked up from crates
       spin: 0,             // seconds left spinning out
       spinDir: 1,
       boost: 0,            // seconds of boost from a speed strip or an item
@@ -125,7 +119,7 @@
     // --- Steering input ---
     if (car.spin > 0) {
       // Spun out: no control at all for a moment. This is the punishment
-      // for a missile, an oil slick, or a big shunt.
+      // for an oil slick or a big shunt.
       car.spin -= dt;
       car.heading += car.spinDir * 9.0 * dt;
       car.speed = RC.damp(car.speed, 40, 3.2, dt);
@@ -253,9 +247,6 @@
     const nowP = car.loc / track.count;
     if (prevP > 0.75 && nowP < 0.25) {
       car.lap++;
-      // A fresh five missiles each lap, including the crossing that starts
-      // the race. They do not stack up if you did not use them.
-      car.missiles = MISSILES_PER_LAP;
       // lap 0 is the race actually starting, so there is no time to record yet.
       if (car.lap >= 1) car.lapTimes.push(race.time - car.lapStartTime);
       car.lapStartTime = race.time;
@@ -330,8 +321,8 @@
 
   /* ---------- Keeping cars roughly on the planet ---------- */
 
-  // If a car ends up absurdly far off the circuit (a huge missile hit near a
-  // hairpin, say) we walk it back onto the tarmac rather than let it get lost.
+  // If a car ends up absurdly far off the circuit (a big shunt near a hairpin,
+  // say) we walk it back onto the tarmac rather than let it get lost.
   RC.leashCar = function (car, track) {
     const limit = track.halfWidth + 420;
     if (Math.abs(car.trackOffset) > limit) {
@@ -365,8 +356,7 @@
       // delay doesn't read as "slower driver", it reads as "car falls off the
       // track", and then the race is a procession instead of a fight.
       reaction: 0.05 + (1 - skill) * 0.06,
-      missileTimer: 1.5 + rng() * 3,   // seconds until it will shoot again
-      oilTimer: 2 + rng() * 4,
+      oilTimer: 2 + rng() * 4,   // seconds until it will lay another slick
       steerMemory: 0,
       rubber: 1,
     };
@@ -431,7 +421,7 @@
     let target = gap > 0.25 ? 1.05 : gap < -0.25 ? 0.955 : 1;
 
     // Anyone who has fallen most of a lap behind the leader gets a tow. One
-    // bad moment early - a missile, a spin, a trip through the dirt - used to
+    // bad moment early - a spin, a slick, a trip through the dirt - used to
     // drop a car out of the race entirely and leave it circulating alone half
     // a minute back. This pulls them back into the fight.
     let lead = -Infinity;

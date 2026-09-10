@@ -4,7 +4,7 @@ A top-down racer for phones and tablets, built in the spirit of
 **R.C. Pro-Am**: little toy cars, missiles, oil slicks, and upgrades you keep
 for the rest of the championship.
 
-A four-way cross on the left, turbo and fire on the right. The car
+A four-way cross on the left, turbo and oil on the right. The car
 accelerates itself.
 
 ---
@@ -43,13 +43,9 @@ arrow keys, fire with the spacebar.
 - **TURBO** is a burst of speed from a meter that refills when you're not
   using it: about two seconds of boost when full, seven and a half to refill.
   Every car on the grid has one.
-- **FIRE** uses your item. The button shows what you're carrying.
 - Finish in the **top three** to unlock the next circuit.
-- **🚀 FIRE** launches a missile — **five every lap**, standard issue for
-  everyone on the grid. They don't carry over, so use them. A hit spins the
-  other car out.
-- **🛢 UP on the cross** drops an oil slick behind you, for whoever is
-  chasing. You can carry up to three.
+- **🛢 OIL** lays a slick behind you, for whoever is chasing. Drive through
+  one and you spin. You pick slicks up from crates and can carry three.
 - **Crates** hold oil slicks and turbo refills.
 - **Yellow squares** are upgrades: engine, tyres, roll cage. You keep them for
   the whole championship — including on races you don't win — so they're

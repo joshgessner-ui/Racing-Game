@@ -1,10 +1,9 @@
 /* ============================================================
    items.js — the RC Pro-Am kit.
 
-   Crates  : drive over one, get a random weapon.
-   Missile : fires forward, homes gently, spins out whoever it hits.
+   Crates  : drive over one to pick up an oil slick or a turbo refill.
    Oil     : dropped behind you, spins out whoever drives through it.
-   Turbo   : an instant burst of speed.
+   Turbo   : refills the boost meter the turbo button spends.
    Zips    : glowing strips baked into the tarmac. Free speed if you can
              hit them, which quietly teaches you the racing line.
    Upgrades: engine / tyres / roll cage. These are the big ones - you keep
@@ -21,12 +20,6 @@
   // How long a computer car waits between shots. The player's five a lap are
   // theirs to spend as fast as they like; the computer cars are deliberately
   // more sparing, or six of them firing freely turns the race into a lottery.
-  // Measured over 150 races per setting: the exact rate barely matters. Even
-  // at an 8-14 second gap the leading three still finish about 9.6s apart
-  // against 6.6s with no missiles at all, so the spread comes from the weapon
-  // itself rather than from how often it is used. This is simply a rate that
-  // keeps the race busy without it raining missiles.
-  const AI_MISSILE_GAP = () => 4.5 + Math.random() * 3.5;
   const UPGRADE_KINDS = ['engine', 'tires', 'armor'];
 
   /* ---------- Laying out a circuit's pickups ---------- */
@@ -105,22 +98,6 @@
     return race.controlsLive && race.started && car.spin <= 0 && !car.finished;
   }
 
-  RC.fireMissile = function (car, race) {
-    if (!canAct(car, race) || car.missiles <= 0) return false;
-    car.missiles--;
-    race.missiles.push({
-      x: car.x + Math.cos(car.heading) * 42,
-      y: car.y + Math.sin(car.heading) * 42,
-      heading: car.heading,
-      speed: RC.carMaxSpeed(car) * 1.55 + 140,
-      life: 3.2,
-      owner: car.index,
-      smoke: 0,
-    });
-    RC.audio.launch();
-    return true;
-  };
-
   RC.dropOil = function (car, race) {
     if (!canAct(car, race) || car.oil <= 0) return false;
     car.oil--;
@@ -190,57 +167,6 @@
       }
     }
 
-    /* Missiles */
-    for (let i = race.missiles.length - 1; i >= 0; i--) {
-      const m = race.missiles[i];
-      m.life -= dt;
-
-      // Gentle homing: only towards a car that is genuinely in front of it.
-      let best = null, bestD = 1e9;
-      for (const c of cars) {
-        if (c.index === m.owner || c.finished) continue;
-        const dx = c.x - m.x, dy = c.y - m.y;
-        const d = Math.hypot(dx, dy);
-        if (d > 620) continue;
-        const ang = Math.abs(RC.angleDelta(m.heading, Math.atan2(dy, dx)));
-        if (ang > 0.75) continue;
-        if (d < bestD) { bestD = d; best = c; }
-      }
-      if (best) {
-        const want = Math.atan2(best.y - m.y, best.x - m.x);
-        m.heading += RC.clamp(RC.angleDelta(m.heading, want), -2.6 * dt, 2.6 * dt);
-      }
-
-      m.x += Math.cos(m.heading) * m.speed * dt;
-      m.y += Math.sin(m.heading) * m.speed * dt;
-
-      m.smoke -= dt;
-      if (m.smoke <= 0) {
-        m.smoke = 0.02;
-        RC.puff(race, m.x, m.y, '#ffffff', 0.35, 9);
-      }
-
-      let hit = false;
-      for (const c of cars) {
-        if (c.index === m.owner || c.finished) continue;
-        if (c.invuln > 0) continue; // already been got - let the missile fly on
-        if (RC.dist2(c.x, c.y, m.x, m.y) < 33 * 33) {
-          if (RC.spinOut(c, 1.0)) {
-            RC.shove(c, Math.cos(m.heading) * 300, Math.sin(m.heading) * 300);
-          }
-          hit = true;
-          break;
-        }
-      }
-
-      if (hit || m.life <= 0) {
-        RC.burst(race, m.x, m.y, 22, '#ffb03f', 340);
-        RC.audio.boom();
-        if (race.playerCar) race.shakeFrom(m.x, m.y, 12);
-        race.missiles.splice(i, 1);
-      }
-    }
-
     /* Oil slicks */
     for (let i = race.slicks.length - 1; i >= 0; i--) {
       const s = race.slicks[i];
@@ -260,32 +186,16 @@
       }
     }
 
-    /* Computer drivers deciding when to shoot and when to drop a slick */
+    /* Computer drivers deciding when to lay a slick */
     for (const car of cars) {
       if (!car.ai || car.spin > 0 || car.finished) continue;
       // The same guard as the player: nothing happens before the start.
       if (!race.started || !race.controlsLive) continue;
 
-      // Cooldowns. Without them a computer car empties all five missiles in
-      // the first couple of seconds it spends behind someone, and the race
-      // stops being a race - the leading three finished 9 to 13 seconds
-      // apart instead of the usual 2 to 4. Pacing the shots spreads the same
-      // five across a lap.
-      car.ai.missileTimer -= dt;
+      // A cooldown, so a computer car does not empty its whole supply of
+      // slicks the moment somebody gets close behind it.
       car.ai.oilTimer -= dt;
 
-      if (car.missiles > 0 && car.ai.missileTimer <= 0) {
-        for (const c of cars) {
-          if (c === car || c.finished) continue;
-          if (c.spin > 0 || c.invuln > 0) continue; // no kicking a car while it's down
-          const dx = c.x - car.x, dy = c.y - car.y;
-          const d = Math.hypot(dx, dy);
-          if (d < 560 && Math.abs(RC.angleDelta(car.heading, Math.atan2(dy, dx))) < 0.32) {
-            if (RC.fireMissile(car, race)) car.ai.missileTimer = AI_MISSILE_GAP();
-            break;
-          }
-        }
-      }
       if (car.oil > 0 && car.ai.oilTimer <= 0) {
         for (const c of cars) {
           if (c === car || c.finished) continue;
@@ -301,9 +211,8 @@
     }
   };
 
-  // What comes out of a crate. Missiles are standard issue now, so a crate
-  // holds the two things you cannot simply be given: a slick to lay down, and
-  // a full turbo meter. If a car can use neither, the crate is left standing.
+  // What comes out of a crate: a slick to lay down, or a full turbo meter.
+  // If a car can use neither, the crate is left standing.
   function rollCrate(car) {
     const canOil = car.oil < RC.MAX_OIL;
     const canTurbo = car.boostCharge < 0.9;

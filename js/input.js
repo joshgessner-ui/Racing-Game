@@ -5,9 +5,9 @@
 
      LEFT / RIGHT  turn the car, for as long as you hold them
      DOWN          brake
-     UP            drop an oil slick behind you
+     UP            nothing (it is there so the cross looks like a cross)
      TURBO         a burst of speed from a meter that refills
-     FIRE          launch a missile - five of them every lap
+     OIL           lay a slick behind you, for whoever is chasing
 
    Left and right ROTATE the car rather than pointing it somewhere. Hold
    right and it keeps turning; let go and it holds the line it's on. That is
@@ -25,14 +25,13 @@
     steer: 0,          // -1 hard left .. +1 hard right
     brake: false,
     turbo: false,
-    firePressed: false,
     oilPressed: false,
 
     _pad: null,        // which finger is on the d-pad
     _turboTouch: null,
-    _fireTouch: null,
+    _oilTouch: null,
     _cx: 0, _cy: 0, _r: 60,   // d-pad centre and size
-    _held: { l: false, r: false, u: false, d: false, uWas: false },
+    _held: { l: false, r: false, u: false, d: false },
     _keys: new Set(),
     _el: {},
   };
@@ -58,9 +57,9 @@
     window.addEventListener('mousemove', (e) => { if (I._pad === 'mouse') readPad(e.clientX, e.clientY); });
     window.addEventListener('mouseup', () => {
       if (I._pad === 'mouse') releasePad();
-      I.turbo = false; press(els.turbo, false); press(els.fire, false);
+      I.turbo = false; press(els.turbo, false); press(els.oil, false);
     });
-    els.fire.addEventListener('mousedown', () => { I.firePressed = true; press(els.fire, true); });
+    els.oil.addEventListener('mousedown', () => { I.oilPressed = true; press(els.oil, true); });
     els.turbo.addEventListener('mousedown', () => { I.turbo = true; press(els.turbo, true); });
 
     window.addEventListener('keydown', onKey(true));
@@ -74,7 +73,7 @@
       const k = map[e.key];
       if (k) { down ? I._keys.add(k) : I._keys.delete(k); e.preventDefault(); }
       if (e.key === 'Shift') { I.turbo = down; press(I._el.turbo, down); }
-      if (down && (e.key === ' ' || e.key === 'Enter')) { I.firePressed = true; e.preventDefault(); }
+      if (down && (e.key === ' ' || e.key === 'Enter')) { I.oilPressed = true; e.preventDefault(); }
     };
   }
 
@@ -101,7 +100,7 @@
     const dx = x - I._cx, dy = y - I._cy;
     const dead = I._r * 0.22;
 
-    const h = { l: false, r: false, u: false, d: false, uWas: I._held.uWas };
+    const h = { l: false, r: false, u: false, d: false };
     if (Math.abs(dx) > dead) (dx < 0 ? h.l = true : h.r = true);
     if (Math.abs(dy) > dead) (dy < 0 ? h.u = true : h.d = true);
 
@@ -115,11 +114,6 @@
 
   function applyHeld() {
     const h = I._held;
-    // Up is edge-triggered - one slick per press, rather than a stream of
-    // them for as long as a thumb happens to rest there.
-    if (h.u && !I._held.uWas) I.oilPressed = true;
-    h.uWas = h.u;
-
     I.steer = (h.r ? 1 : 0) - (h.l ? 1 : 0);
     I.brake = h.d;
     const e = I._el;
@@ -128,7 +122,7 @@
 
   function releasePad() {
     I._pad = null;
-    I._held = { l: false, r: false, u: false, d: false, uWas: false };
+    I._held = { l: false, r: false, u: false, d: false };
     applyHeld();
   }
 
@@ -143,7 +137,7 @@
   function zoneOf(t) {
     const el = document.elementFromPoint(t.clientX, t.clientY);
     if (el) {
-      if (el.closest('#btnFire')) return 'fire';
+      if (el.closest('#btnOil')) return 'oil';
       if (el.closest('#btnTurbo')) return 'turbo';
       if (el.closest('.screen') || el.closest('#btnPause')) return 'ui';
     }
@@ -159,7 +153,7 @@
       const z = zoneOf(t);
       if (z === 'ui' || z === 'none') continue;
       used = true;
-      if (z === 'fire') { I._fireTouch = t.identifier; I.firePressed = true; press(I._el.fire, true); }
+      if (z === 'oil') { I._oilTouch = t.identifier; I.oilPressed = true; press(I._el.oil, true); }
       else if (z === 'turbo') { I._turboTouch = t.identifier; I.turbo = true; press(I._el.turbo, true); }
       else if (I._pad === null) { I._pad = t.identifier; readPad(t.clientX, t.clientY); }
     }
@@ -175,7 +169,7 @@
   function onEnd(e) {
     for (const t of e.changedTouches) {
       if (t.identifier === I._pad) releasePad();
-      if (t.identifier === I._fireTouch) { I._fireTouch = null; press(I._el.fire, false); }
+      if (t.identifier === I._oilTouch) { I._oilTouch = null; press(I._el.oil, false); }
       if (t.identifier === I._turboTouch) { I._turboTouch = null; I.turbo = false; press(I._el.turbo, false); }
     }
   }
@@ -186,15 +180,7 @@
     if (I._keys.size) {
       I.steer = (I._keys.has('r') ? 1 : 0) - (I._keys.has('l') ? 1 : 0);
       I.brake = I._keys.has('d2');
-      if (I._keys.has('u') && !I._keyUWas) I.oilPressed = true;
     }
-    I._keyUWas = I._keys.has('u');
-  };
-
-  RC.input.consumeFire = function () {
-    const f = I.firePressed;
-    I.firePressed = false;
-    return f;
   };
 
   RC.input.consumeOil = function () {
@@ -206,12 +192,10 @@
   RC.input.reset = function () {
     releasePad();
     I.turbo = false;
-    I.firePressed = false;
     I.oilPressed = false;
-    I._keyUWas = false;
-    I._turboTouch = I._fireTouch = null;
+    I._turboTouch = I._oilTouch = null;
     I._keys.clear();
     press(I._el.turbo, false);
-    press(I._el.fire, false);
+    press(I._el.oil, false);
   };
 })();

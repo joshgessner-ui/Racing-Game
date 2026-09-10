@@ -106,8 +106,6 @@
 
   RC.audio.pickup = () => blip(660, 0.10, 'square', 0.16, 990);
   RC.audio.upgrade = () => { blip(523, 0.09, 'square', 0.18); setTimeout(() => blip(784, 0.14, 'square', 0.18), 90); };
-  RC.audio.launch = () => blip(880, 0.22, 'sawtooth', 0.14, 220);
-  RC.audio.boom = () => { noise(0.35, 0.28, 900); blip(120, 0.25, 'sawtooth', 0.12, 40); };
   RC.audio.drop = () => blip(200, 0.16, 'triangle', 0.14, 90);
   RC.audio.turbo = () => blip(300, 0.35, 'sawtooth', 0.13, 1400);
   RC.audio.zip = () => blip(520, 0.09, 'triangle', 0.10, 1040);
