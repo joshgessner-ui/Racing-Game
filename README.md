@@ -1,7 +1,7 @@
 # Turbo Circuit
 
 A top-down racer for phones and tablets, built in the spirit of
-**R.C. Pro-Am**: little toy cars, missiles, oil slicks, and upgrades you keep
+**R.C. Pro-Am**: little toy cars, oil slicks, turbo, and upgrades you keep
 for the rest of the championship.
 
 A four-way cross on the left, turbo and oil on the right. The car
@@ -29,7 +29,7 @@ the repository *is* the website, so every push updates the live game
 automatically.
 
 **On a computer, to try it quickly:** double-click `index.html`. Steer with the
-arrow keys, fire with the spacebar.
+arrow keys, drop oil with the spacebar, turbo with shift.
 
 ## The rules
 
@@ -117,7 +117,7 @@ change a number, refresh the page.
 | `js/track.js` | Turns a handful of points into a circuit, and answers "am I on the road?", "what lap is this?" |
 | `js/tracks.js` | **The five circuits.** The most fun file to experiment with. |
 | `js/car.js` | How a car moves, and how the computer drivers think. |
-| `js/items.js` | Crates, missiles, oil, turbo, upgrades. |
+| `js/items.js` | Crates, oil slicks, turbo, upgrades. |
 | `js/render.js` | Everything you see — track, cars, scenery, skid marks. |
 | `js/game.js` | The game loop, the championship, and the menus. |
 
